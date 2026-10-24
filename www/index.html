@@ -11,29 +11,56 @@
             color: #ffffff;
             margin: 0;
             padding: 20px;
+        }
+        h2 { color: #4caf50; text-align: center; }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px;
+            margin-top: 10px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #1e1e1e;
+            color: white;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin-top: 15px;
+            border-radius: 8px;
+            border: none;
+            background: #4caf50;
+            color: white;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:active { background: #388e3c; }
+        .status { text-align: center; margin-top: 15px; font-size: 14px; }
+        .tx-card {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
             display: flex;
-            flex-direction: column;
+            justify-content: space-between;
             align-items: center;
         }
-        .card {
-            background-color: #1e1e1e;
-            border-radius: 12px;
-            padding: 20px;
-            width: 100%;
-            max-width: 400px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            text-align: center;
-            margin-top: 50px;
-        }
-        h1 { margin-top: 0; color: #4caf50; }
+        .tx-info { display: flex; flex-direction: column; }
+        .tx-desc { font-weight: bold; font-size: 15px; }
+        .tx-date { font-size: 12px; color: #888; margin-top: 4px; }
+        .tx-amount { font-weight: bold; font-size: 16px; }
+        .green { color: #4caf50; } /* Доход */
+        .white { color: #ffffff; } /* Расход */
     </style>
 </head>
 <body>
-    <div class="card">
-        <h1>ZenLocal</h1>
-        <p>Сборка успешно работает!</p>
-        <p id="status">Инициализация базы данных...</p>
-    </div>
+    <h2>ZenLocal</h2>
+    
+    <input type="text" id="monoToken" placeholder="Вставь токен Монобанка">
+    <button id="syncBtn">Синхронизировать Монобанк</button>
+    
+    <div id="status" class="status"></div>
+    <div id="transactions"></div>
 
     <script src="js/app.js"></script>
 </body>
