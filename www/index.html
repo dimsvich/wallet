@@ -11,10 +11,8 @@
             color: #ffffff;
             margin: 0;
             padding: 0;
-            padding-bottom: 70px; /* Отступ для нижней панели */
+            padding-bottom: 70px;
         }
-        
-        /* Шапка с балансом */
         .header {
             padding: 20px;
             background: #181818;
@@ -24,8 +22,6 @@
         .balance-amount { font-size: 26px; font-weight: bold; margin-top: 5px; }
 
         .container { padding: 15px; }
-
-        /* Секции */
         .section-header {
             font-size: 14px;
             color: #888;
@@ -34,7 +30,6 @@
             letter-spacing: 0.5px;
         }
 
-        /* Карточки счетов */
         .account-card {
             background: #1e1e1e;
             padding: 15px;
@@ -49,7 +44,6 @@
         .account-sub { font-size: 12px; color: #888; margin-top: 3px; }
         .account-sum { font-weight: bold; font-size: 16px; }
 
-        /* Формы и кнопки */
         input, select {
             width: 100%;
             box-sizing: border-box;
@@ -73,9 +67,8 @@
             cursor: pointer;
             margin-top: 5px;
         }
-        .btn-mono { background: #ff5722; }
+        .btn-secondary { background: #333; }
 
-        /* Транзакции */
         .tx-card {
             background: #1e1e1e;
             padding: 12px 15px;
@@ -92,13 +85,10 @@
         .green { color: #4caf50; }
         .white { color: #ffffff; }
 
-        /* Нижняя панель навигации */
         .nav-bar {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 60px;
+            bottom: 0; left: 0;
+            width: 100%; height: 60px;
             background: #181818;
             border-top: 1px solid #2a2a2a;
             display: flex;
@@ -107,29 +97,30 @@
             box-sizing: border-box;
         }
         .nav-item {
-            background: none;
-            border: none;
-            color: #777;
-            font-size: 11px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            cursor: pointer;
-            width: 20%;
-            padding: 0;
-            margin: 0;
+            background: none; border: none;
+            color: #777; font-size: 11px;
+            display: flex; flex-direction: column; align-items: center;
+            cursor: pointer; width: 33%; padding: 0;
         }
         .nav-item.active { color: #4caf50; }
         .nav-icon { font-size: 18px; margin-bottom: 2px; }
 
-        /* Управление вкладками */
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        
+        /* Модальное окно добавления счета */
+        .modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content {
+            background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px;
+            box-sizing: border-box;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Шапка приложения -->
     <div class="header">
         <div class="balance-title">Общий баланс</div>
         <div class="balance-amount" id="totalBalance">0 ₴</div>
@@ -137,78 +128,83 @@
 
     <!-- ВКЛАДКА 1: СЧЕТА -->
     <div id="tab-accounts" class="tab-content active container">
-        <div class="section-header">Банки и счета</div>
-        
-        <div class="account-card">
-            <div class="account-info">
-                <span class="account-name">💳 Monobank</span>
-                <span class="account-sub" id="monoSub">Токен не подключен</span>
-            </div>
-            <div class="account-sum" id="monoBalance">0 ₴</div>
-        </div>
-
-        <div class="account-card">
-            <div class="account-info">
-                <span class="account-name">💵 Наличные / Ручной учет</span>
-                <span class="account-sub">Все внебиржевые расходы</span>
-            </div>
-            <div class="account-sum" id="manualBalance">0 ₴</div>
-        </div>
-
-        <div class="section-header">Настройки интеграции</div>
-        <div class="account-card" style="flex-direction: column; align-items: stretch;">
-            <div style="font-weight: bold; margin-bottom: 8px; color: #ff5722;">Подключение Monobank</div>
-            <input type="text" id="monoToken" placeholder="Вставьте X-Token">
-            <button id="syncMonoBtn" class="btn-mono">Синхронизировать Mono</button>
-        </div>
+        <div class="section-header">Мои счета</div>
+        <div id="accountsList"></div>
+        <button onclick="openModal()">+ Добавить счет</button>
     </div>
 
     <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
     <div id="tab-operations" class="tab-content container">
-        <div class="section-header">Добавить операцию вручную</div>
+        <div class="section-header">Добавить операцию</div>
         <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
-            <input type="number" id="manualAmount" placeholder="Сумма (например, -150 или 500)">
-            <input type="text" id="manualDesc" placeholder="Описание (Продукты, Кафе...)">
+            <select id="opAccountSelect"></select>
+            <input type="number" id="manualAmount" placeholder="Сумма (-150 или 500)">
+            <input type="text" id="manualDesc" placeholder="Описание (Продукты, Зарплата...)">
             <select id="manualType">
                 <option value="expense">Расход</option>
                 <option value="income">Доход</option>
             </select>
-            <button id="addManualBtn">Сохранить операцию</button>
+            <button id="addManualBtn">Сохранить</button>
         </div>
 
-        <div class="section-header">История операций</div>
+        <div class="section-header">История</div>
         <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
         <div id="transactions"></div>
     </div>
 
-    <!-- ВКЛАДКА 3: АНАЛИТИКА (Задел на будущее) -->
-    <div id="tab-analytics" class="tab-content container">
-        <div class="section-header">Аналитика расходов</div>
-        <p style="color: #888; font-size: 14px;">Здесь появятся графики по категориям (MCC-кодам), как в Дзен-мани.</p>
+    <!-- ВКЛАДКА 3: НАСТРОЙКИ / ЕЩЕ -->
+    <div id="tab-settings" class="tab-content container">
+        <div class="section-header">Управление данными</div>
+        <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа (JSON)</button>
     </div>
 
-    <!-- Нижняя панель навигации (как на скриншоте) -->
+    <!-- МОДАЛКА ДОБАВЛЕНИЯ СЧЕТА -->
+    <div id="accountModal" class="modal">
+        <div class="modal-content">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
+            <input type="text" id="accName" placeholder="Название (напр. Наличные, Карта)">
+            <input type="number" id="accStartBalance" placeholder="Стартовый баланс (₴)">
+            <select id="accType" onchange="toggleBankSelect()">
+                <option value="cash">Наличные / Обычный</option>
+                <option value="bank">Банк</option>
+            </select>
+            <div id="bankFields" style="display: none;">
+                <select id="bankName">
+                    <option value="monobank">Monobank</option>
+                </select>
+                <input type="text" id="bankToken" placeholder="Токен Монобанка (X-Token)">
+            </div>
+            <button onclick="createAccount()">Создать счет</button>
+            <button class="btn-secondary" onclick="closeModal()">Отмена</button>
+        </div>
+    </div>
+
+    <!-- НИЖНЯЯ ПАНЕЛЬ -->
     <nav class="nav-bar">
         <button class="nav-item active" onclick="switchTab('accounts', this)">
-            <span class="nav-icon">📊</span> Счета
+            <span class="nav-icon">💳</span> Счета
         </button>
         <button class="nav-item" onclick="switchTab('operations', this)">
             <span class="nav-icon">📑</span> Операции
         </button>
-        <button class="nav-item" onclick="switchTab('analytics', this)">
-            <span class="nav-icon">📈</span> Аналитика
+        <button class="nav-item" onclick="switchTab('settings', this)">
+            <span class="nav-icon">⚙️</span> Еще
         </button>
     </nav>
 
     <script src="js/app.js"></script>
     <script>
-        // Функция переключения вкладок внизу
         function switchTab(tabName, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
             document.getElementById('tab-' + tabName).classList.add('active');
             btn.classList.add('active');
+        }
+        function openModal() { document.getElementById('accountModal').style.display = 'flex'; }
+        function closeModal() { document.getElementById('accountModal').style.display = 'none'; }
+        function toggleBankSelect() {
+            const type = document.getElementById('accType').value;
+            document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
         }
     </script>
 </body>
