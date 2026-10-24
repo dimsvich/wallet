@@ -16,16 +16,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     db = await initDB();
     await loadFromDB();
   } catch (error) {
-    setStatus("Ошибка загрузки локальной базы.", "red");
+    console.error("Ошибка БД:", error);
   }
 
   if (localStorage.getItem("mono_token"))
     monoTokenInput.value = localStorage.getItem("mono_token");
-
-  function setStatus(text, color = "#888") {
-    statusEl.innerText = text;
-    statusEl.style.color = color;
-  }
 
   // --- РУЧНОЙ ВВОД ---
   addManualBtn.addEventListener("click", async () => {
@@ -33,19 +28,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     const desc = manualDescInput.value.trim() || "Без описания";
     const type = manualTypeSelect.value;
 
-    if (isNaN(rawAmount) || rawAmount === 0) {
-      setStatus("Введите корректную сумму", "#f44336");
-      return;
-    }
+    if (isNaN(rawAmount) || rawAmount === 0) return;
 
-    // Если это расход, сумма должна быть отрицательной в копейках
     let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
-    if (type === "expense") {
-      amountInKopecks = -amountInKopecks;
-    }
+    if (type === "expense") amountInKopecks = -amountInKopecks;
 
     const newTx = {
-      id: "manual_" + Date.now(), // Уникальный ID на основе времени
+      id: "manual_" + Date.now(),
       bank: "manual",
       amount: amountInKopecks,
       category: "Ручной ввод",
@@ -55,16 +44,11 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       await saveTransactions([newTx]);
-      setStatus("Запись успешно добавлена!", "#4caf50");
-
-      // Очищаем поля ввода
       manualAmountInput.value = "";
       manualDescInput.value = "";
-
       await loadFromDB();
     } catch (e) {
       console.error(e);
-      setStatus("Ошибка сохранения записи", "#f44336");
     }
   });
 
@@ -73,7 +57,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const token = monoTokenInput.value.trim();
     if (!token) return;
     localStorage.setItem("mono_token", token);
-    setStatus("Скачиваем выписку Mono...");
+    if (statusEl) statusEl.innerText = "Скачиваем выписку Mono...";
 
     try {
       const to = Math.floor(Date.now() / 1000);
@@ -98,15 +82,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       }));
 
       await saveTransactions(formattedTxs);
-      setStatus(`Успешно! Mono: ${data.length} операций.`, "#4caf50");
+      if (statusEl)
+        statusEl.innerText = `Успешно загружено операций: ${data.length}`;
       await loadFromDB();
     } catch (error) {
       console.error(error);
-      setStatus("Ошибка подключения к Monobank.", "#f44336");
+      if (statusEl) statusEl.innerText = "Ошибка подключения к Monobank.";
     }
   });
 
-  // --- ФУНКЦИИ БАЗЫ ДАННЫХ ---
+  // --- БАЗА ДАННЫХ И РАСЧЕТ БАЛАНСОВ ---
   function initDB() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open("ZenLocalDB", 1);
@@ -141,13 +126,35 @@ document.addEventListener("DOMContentLoaded", async () => {
         txContainer.innerHTML = "";
         let records = request.result;
 
+        let totalBalance = 0;
+        let monoBalance = 0;
+        let manualBalance = 0;
+
+        records.forEach((tx) => {
+          totalBalance += tx.amount;
+          if (tx.bank === "mono") monoBalance += tx.amount;
+          else manualBalance += tx.amount;
+        });
+
+        // Обновляем цифры в шапке и на карточках счетов
+        document.getElementById("totalBalance").innerText =
+          (totalBalance / 100).toFixed(2) + " ₴";
+        document.getElementById("monoBalance").innerText =
+          (monoBalance / 100).toFixed(2) + " ₴";
+        document.getElementById("manualBalance").innerText =
+          (manualBalance / 100).toFixed(2) + " ₴";
+
+        if (localStorage.getItem("mono_token")) {
+          document.getElementById("monoSub").innerText = "Синхронизировано";
+        }
+
         if (records.length > 0) {
           records.sort((a, b) => b.date - a.date);
           records = records.slice(0, 100);
 
           records.forEach((tx) => {
             const card = document.createElement("div");
-            card.className = `tx-card ${tx.bank === "mono" ? "border-mono" : "border-manual"}`;
+            card.className = `tx-card`;
 
             const amount = tx.amount / 100;
             const amountStr = amount > 0 ? `+${amount} ₴` : `${amount} ₴`;
@@ -173,7 +180,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         } else {
           txContainer.innerHTML =
-            '<p style="text-align:center; color:#888;">База пуста.</p>';
+            '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
         }
         resolve();
       };
