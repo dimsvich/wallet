@@ -10,11 +10,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     console.error("Ошибка инициализации:", error);
   }
 
-  // Ручное добавление операции
   const addManualBtn = document.getElementById("addManualBtn");
   if (addManualBtn) {
     addManualBtn.addEventListener("click", async () => {
       const accountId = document.getElementById("opAccountSelect").value;
+      const categoryId = document.getElementById("opCategorySelect").value;
       const rawAmount = parseFloat(
         document.getElementById("manualAmount").value,
       );
@@ -30,9 +30,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       const newTx = {
         id: "tx_" + Date.now(),
         accountId: accountId,
+        categoryId: categoryId || "cat_default",
         amount: amountInKopecks,
         description: desc,
         date: Math.floor(Date.now() / 1000),
+        userModified: true,
       };
 
       await saveTransaction(newTx);
@@ -43,8 +45,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
-// --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ИНТЕРФЕЙСА (ОКНА И ВКЛАДКИ) ---
-
+// --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА ---
 window.switchTab = function (tabName, btn) {
   document
     .querySelectorAll(".tab-content")
@@ -59,11 +60,9 @@ window.switchTab = function (tabName, btn) {
 window.openModal = function (modalId) {
   document.getElementById(modalId).style.display = "flex";
 };
-
 window.closeModal = function (modalId) {
   document.getElementById(modalId).style.display = "none";
 };
-
 window.toggleBankSelect = function () {
   const type = document.getElementById("accType").value;
   document.getElementById("bankFields").style.display =
@@ -100,7 +99,99 @@ window.createAccount = async function () {
   await refreshAppData();
 };
 
-// Открытие модалки корректировки баланса
+// Создание категории
+window.createCategory = async function () {
+  const nameInput = document.getElementById("newCatName");
+  const name = nameInput.value.trim();
+  if (!name) return;
+
+  const newCat = {
+    id: "cat_" + Date.now(),
+    name: name,
+  };
+
+  await saveCategory(newCat);
+  nameInput.value = "";
+  await refreshAppData();
+};
+
+// Открытие редактора транзакции
+window.openEditTransaction = async function (txId) {
+  const transactions = await getAllTransactions();
+  const tx = transactions.find((t) => t.id === txId);
+  if (!tx) return;
+
+  document.getElementById("editTxId").value = tx.id;
+  document.getElementById("editTxAmount").value = (tx.amount / 100).toFixed(2);
+  document.getElementById("editTxDesc").value = tx.description;
+
+  const accounts = await getAllAccounts();
+  const categories = await getAllCategories();
+
+  const accSelect = document.getElementById("editTxAccount");
+  const catSelect = document.getElementById("editTxCategory");
+
+  accSelect.innerHTML = "";
+  catSelect.innerHTML = "";
+
+  accounts.forEach((a) => {
+    const opt = document.createElement("option");
+    opt.value = a.id;
+    opt.innerText = a.name;
+    if (a.id === tx.accountId) opt.selected = true;
+    accSelect.appendChild(opt);
+  });
+
+  categories.forEach((c) => {
+    const opt = document.createElement("option");
+    opt.value = c.id;
+    opt.innerText = c.name;
+    if (c.id === tx.categoryId) opt.selected = true;
+    catSelect.appendChild(opt);
+  });
+
+  window.openModal("editTxModal");
+};
+
+// Сохранение отредактированной транзакции
+window.saveEditedTransaction = async function () {
+  const txId = document.getElementById("editTxId").value;
+  const accountId = document.getElementById("editTxAccount").value;
+  const categoryId = document.getElementById("editTxCategory").value;
+  const rawAmount = parseFloat(document.getElementById("editTxAmount").value);
+  const desc = document.getElementById("editTxDesc").value.trim();
+
+  if (isNaN(rawAmount)) return;
+
+  const transactions = await getAllTransactions();
+  const tx = transactions.find((t) => t.id === txId);
+  if (!tx) return;
+
+  // Сохраняем знак расхода/дохода исходной транзакции
+  const isNegative = tx.amount < 0;
+  let newAmount = Math.round(Math.abs(rawAmount) * 100);
+  if (isNegative) newAmount = -newAmount;
+
+  tx.accountId = accountId;
+  tx.categoryId = categoryId;
+  tx.amount = newAmount;
+  tx.description = desc;
+  tx.userModified = true; // Защита от затирания при синхронизации
+
+  await saveTransaction(tx);
+  window.closeModal("editTxModal");
+  await refreshAppData();
+};
+
+// Удаление транзакции
+window.deleteTransaction = async function () {
+  const txId = document.getElementById("editTxId").value;
+  await removeTransaction(txId);
+  window.closeModal("editTxModal");
+  await refreshAppData();
+};
+
+// Корректировка баланса
 window.openAdjustModal = function (accountId, currentBalance) {
   document.getElementById("adjustAccId").value = accountId;
   document.getElementById("adjustRealAmount").value = (
@@ -109,7 +200,6 @@ window.openAdjustModal = function (accountId, currentBalance) {
   window.openModal("adjustModal");
 };
 
-// Сохранение корректировки баланса
 window.saveBalanceAdjustment = async function () {
   const accountId = document.getElementById("adjustAccId").value;
   const realAmountVal = parseFloat(
@@ -134,9 +224,11 @@ window.saveBalanceAdjustment = async function () {
     const adjTx = {
       id: "tx_adj_" + Date.now(),
       accountId: accountId,
+      categoryId: "cat_default",
       amount: diff,
       description: "Коррекция баланса",
       date: Math.floor(Date.now() / 1000),
+      userModified: true,
     };
     await saveTransaction(adjTx);
   }
@@ -145,22 +237,7 @@ window.saveBalanceAdjustment = async function () {
   await refreshAppData();
 };
 
-// Экспорт бэкапа
-window.exportData = async function () {
-  const accounts = await getAllAccounts();
-  const transactions = await getAllTransactions();
-  const backup = { accounts, transactions, date: new Date().toISOString() };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {
-    type: "application/json",
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `zenlocal_backup_${Date.now()}.json`;
-  a.click();
-};
-
-// Синхронизация Монобанка
+// Синхронизация Монобанка с защитой отредактированных записей
 window.syncMonoAccount = async function (accountId, token) {
   const statusEl = document.getElementById("status");
   if (statusEl) statusEl.innerText = "Синхронизация Монобанка...";
@@ -178,19 +255,30 @@ window.syncMonoAccount = async function (accountId, token) {
     if (!response.ok) throw new Error("Ошибка API Mono");
     const data = await response.json();
 
+    const existingTxs = await getAllTransactions();
+
     for (let t of data) {
+      const txId = "mono_" + t.id;
+      const existing = existingTxs.find((item) => item.id === txId);
+
+      // Если пользователь уже редактировал эту транзакцию вручную — пропускаем ее перезапись!
+      if (existing && existing.userModified) {
+        continue;
+      }
+
       const txData = {
-        id: "mono_" + t.id,
+        id: txId,
         accountId: accountId,
+        categoryId: "cat_default",
         amount: t.amount,
         description: t.description,
         date: t.time,
+        userModified: false,
       };
       await saveTransaction(txData);
     }
 
-    if (statusEl)
-      statusEl.innerText = `Успешно загружено операций: ${data.length}`;
+    if (statusEl) statusEl.innerText = `Успешно синхронизировано!`;
     await refreshAppData();
   } catch (error) {
     console.error(error);
@@ -198,47 +286,10 @@ window.syncMonoAccount = async function (accountId, token) {
   }
 };
 
-// --- ЗАГРУЗКА КУРСОВ ВАЛЮТ МОНОБАНКА ---
-async function fetchRates() {
-  try {
-    const res = await fetch("https://api.monobank.ua/bank/currency");
-    if (!res.ok) return;
-    const data = await res.json();
-
-    const usdRate = data.find(
-      (item) => item.currencyCodeA === 840 && item.currencyCodeB === 980,
-    );
-    const eurRate = data.find(
-      (item) => item.currencyCodeA === 978 && item.currencyCodeB === 980,
-    );
-
-    if (usdRate)
-      exchangeRates.USD =
-        usdRate.rateSell || usdRate.rateCross || exchangeRates.USD;
-    if (eurRate)
-      exchangeRates.EUR =
-        eurRate.rateSell || eurRate.rateCross || exchangeRates.EUR;
-
-    const rateUsdEl = document.getElementById("rateUsd");
-    const rateEurEl = document.getElementById("rateEur");
-
-    if (rateUsdEl) rateUsdEl.innerText = `${exchangeRates.USD.toFixed(2)} ₴`;
-    if (rateEurEl) rateEurEl.innerText = `${exchangeRates.EUR.toFixed(2)} ₴`;
-  } catch (e) {
-    console.log("Не удалось подгрузить курсы");
-    if (document.getElementById("rateUsd"))
-      document.getElementById("rateUsd").innerText =
-        `${exchangeRates.USD.toFixed(2)} ₴`;
-    if (document.getElementById("rateEur"))
-      document.getElementById("rateEur").innerText =
-        `${exchangeRates.EUR.toFixed(2)} ₴`;
-  }
-}
-
-// --- БАЗА ДАННЫХ ---
+// --- БАЗА ДАННЫХ ИНКРЕМЕНТ (Версия 3) ---
 function initDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("ZenLocalDB", 2);
+    const request = indexedDB.open("ZenLocalDB", 3);
     request.onerror = () => reject("Ошибка IndexedDB");
     request.onsuccess = (e) => resolve(e.target.result);
     request.onupgradeneeded = (e) => {
@@ -247,6 +298,11 @@ function initDB() {
         db.createObjectStore("accounts", { keyPath: "id" });
       if (!db.objectStoreNames.contains("transactions"))
         db.createObjectStore("transactions", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("categories")) {
+        const catStore = db.createObjectStore("categories", { keyPath: "id" });
+        // Создаем дефолтную категорию при первом создании базы
+        catStore.put({ id: "cat_default", name: "Без категории" });
+      }
     };
   });
 }
@@ -255,6 +311,15 @@ function saveAccount(acc) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("accounts", "readwrite");
     tx.objectStore("accounts").put(acc);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function saveCategory(cat) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("categories", "readwrite");
+    tx.objectStore("categories").put(cat);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -269,10 +334,27 @@ function saveTransaction(txData) {
   });
 }
 
+function removeTransaction(txId) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("transactions", "readwrite");
+    tx.objectStore("transactions").delete(txId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 async function getAllAccounts() {
   return new Promise((resolve) => {
     const tx = db.transaction("accounts", "readonly");
     const req = tx.objectStore("accounts").getAll();
+    req.onsuccess = () => resolve(req.result);
+  });
+}
+
+async function getAllCategories() {
+  return new Promise((resolve) => {
+    const tx = db.transaction("categories", "readonly");
+    const req = tx.objectStore("categories").getAll();
     req.onsuccess = () => resolve(req.result);
   });
 }
@@ -285,19 +367,59 @@ async function getAllTransactions() {
   });
 }
 
-// --- Обновление интерфейса ---
+// --- КУРСЫ ВАЛЮТ ---
+async function fetchRates() {
+  try {
+    const res = await fetch("https://api.monobank.ua/bank/currency");
+    if (!res.ok) return;
+    const data = await res.json();
+    const usdRate = data.find(
+      (item) => item.currencyCodeA === 840 && item.currencyCodeB === 980,
+    );
+    const eurRate = data.find(
+      (item) => item.currencyCodeA === 978 && item.currencyCodeB === 980,
+    );
+
+    if (usdRate)
+      exchangeRates.USD =
+        usdRate.rateSell || usdRate.rateCross || exchangeRates.USD;
+    if (eurRate)
+      exchangeRates.EUR =
+        eurRate.rateSell || eurRate.rateCross || exchangeRates.EUR;
+
+    if (document.getElementById("rateUsd"))
+      document.getElementById("rateUsd").innerText =
+        `${exchangeRates.USD.toFixed(2)} ₴`;
+    if (document.getElementById("rateEur"))
+      document.getElementById("rateEur").innerText =
+        `${exchangeRates.EUR.toFixed(2)} ₴`;
+  } catch (e) {
+    if (document.getElementById("rateUsd"))
+      document.getElementById("rateUsd").innerText =
+        `${exchangeRates.USD.toFixed(2)} ₴`;
+    if (document.getElementById("rateEur"))
+      document.getElementById("rateEur").innerText =
+        `${exchangeRates.EUR.toFixed(2)} ₴`;
+  }
+}
+
+// --- ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ---
 async function refreshAppData() {
   const accounts = await getAllAccounts();
+  const categories = await getAllCategories();
   const transactions = await getAllTransactions();
 
   const accountsList = document.getElementById("accountsList");
   const opAccountSelect = document.getElementById("opAccountSelect");
+  const opCategorySelect = document.getElementById("opCategorySelect");
   const txContainer = document.getElementById("transactions");
 
-  if (!accountsList || !opAccountSelect || !txContainer) return;
+  if (!accountsList || !opAccountSelect || !opCategorySelect || !txContainer)
+    return;
 
   accountsList.innerHTML = "";
   opAccountSelect.innerHTML = "";
+  opCategorySelect.innerHTML = "";
 
   let totalGlobalBalanceUAH = 0;
 
@@ -322,7 +444,7 @@ async function refreshAppData() {
                 <span class="account-name">${acc.name}</span>
                 <span class="account-sub">${acc.type === "bank" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
-                    <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить баланс</button>
+                    <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить</button>
                     ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Sync</button>` : ""}
                 </div>
             </div>
@@ -341,6 +463,13 @@ async function refreshAppData() {
       '<p style="color:#888; text-align:center;">Нет счетов. Создайте первый счет.</p>';
   }
 
+  categories.forEach((cat) => {
+    const opt = document.createElement("option");
+    opt.value = cat.id;
+    opt.innerText = cat.name;
+    opCategorySelect.appendChild(opt);
+  });
+
   document.getElementById("totalBalance").innerText =
     (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
 
@@ -349,7 +478,9 @@ async function refreshAppData() {
     transactions.sort((a, b) => b.date - a.date);
     transactions.slice(0, 100).forEach((tx) => {
       const acc = accounts.find((a) => a.id === tx.accountId);
+      const cat = categories.find((c) => c.id === tx.categoryId);
       const accName = acc ? acc.name : "Удаленный счет";
+      const catName = cat ? cat.name : "Без категории";
       const symbol = acc
         ? acc.currency === "USD"
           ? "$"
@@ -360,6 +491,7 @@ async function refreshAppData() {
 
       const card = document.createElement("div");
       card.className = "tx-card";
+      card.onclick = () => openEditTransaction(tx.id);
 
       const amount = tx.amount / 100;
       const amountStr =
@@ -378,7 +510,7 @@ async function refreshAppData() {
       card.innerHTML = `
                 <div class="tx-info">
                     <span class="tx-desc">${tx.description}</span>
-                    <span class="tx-date">${accName} • ${dateStr}</span>
+                    <span class="tx-date">${catName} • ${accName} • ${dateStr}</span>
                 </div>
                 <div class="tx-amount ${colorClass}">${amountStr}</div>
             `;
@@ -386,6 +518,26 @@ async function refreshAppData() {
     });
   } else {
     txContainer.innerHTML =
-      '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
+      '<p style="color:#888; text-align:center;">Операций пока нет.</p>';
   }
 }
+
+window.exportData = async function () {
+  const accounts = await getAllAccounts();
+  const categories = await getAllCategories();
+  const transactions = await getAllTransactions();
+  const backup = {
+    accounts,
+    categories,
+    transactions,
+    date: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], {
+    type: "application/json",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `zenlocal_backup_${Date.now()}.json`;
+  a.click();
+};

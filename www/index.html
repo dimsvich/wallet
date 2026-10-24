@@ -9,8 +9,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             background-color: #121212;
             color: #ffffff;
-            margin: 0;
-            padding: 0;
+            margin: 0; padding: 0;
             padding-bottom: 70px;
         }
         .header {
@@ -21,98 +20,53 @@
         .balance-title { font-size: 13px; color: #888; }
         .balance-amount { font-size: 26px; font-weight: bold; margin-top: 3px; }
         
-        /* Виджет курсов валют */
         .rates-container {
-            display: flex;
-            gap: 15px;
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid #252525;
-            font-size: 12px;
-            color: #aaa;
+            display: flex; gap: 15px; margin-top: 10px; padding-top: 10px;
+            border-top: 1px solid #252525; font-size: 12px; color: #aaa;
         }
         .rate-item { display: flex; gap: 5px; }
         .rate-val { color: #4caf50; font-weight: bold; }
 
         .container { padding: 15px; }
         .section-header {
-            font-size: 14px;
-            color: #888;
-            margin: 20px 0 10px 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            font-size: 14px; color: #888; margin: 20px 0 10px 5px;
+            text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        .account-card {
-            background: #1e1e1e;
-            padding: 15px;
-            border-radius: 12px;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+        .account-card, .tx-card {
+            background: #1e1e1e; padding: 15px; border-radius: 12px;
+            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
         }
-        .account-info { display: flex; flex-direction: column; }
-        .account-name { font-weight: bold; font-size: 15px; }
-        .account-sub { font-size: 12px; color: #888; margin-top: 3px; }
-        .account-sum { font-weight: bold; font-size: 16px; text-align: right; }
+        .tx-card { padding: 12px 15px; cursor: pointer; }
+        .account-info, .tx-info { display: flex; flex-direction: column; width: 70%; }
+        .account-name, .tx-desc { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .account-sub, .tx-date { font-size: 12px; color: #888; margin-top: 3px; }
+        .account-sum, .tx-amount { font-weight: bold; font-size: 16px; text-align: right; white-space: nowrap; }
         .account-actions { display: flex; gap: 8px; margin-top: 5px; }
 
         input, select {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            border: 1px solid #333;
-            background: #2a2a2a;
-            color: white;
-            font-size: 15px;
+            width: 100%; box-sizing: border-box; padding: 12px; margin-bottom: 10px;
+            border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; font-size: 15px;
         }
         button {
-            width: 100%;
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            background: #4caf50;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 5px;
+            width: 100%; padding: 12px; border-radius: 8px; border: none;
+            background: #4caf50; color: white; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 5px;
         }
         .btn-secondary { background: #333; }
+        .btn-danger { background: #f44336; }
         .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; margin: 0; }
 
-        .tx-card {
-            background: #1e1e1e;
-            padding: 12px 15px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .tx-info { display: flex; flex-direction: column; width: 70%; }
-        .tx-desc { font-weight: bold; font-size: 14px; }
-        .tx-date { font-size: 11px; color: #888; margin-top: 3px; }
-        .tx-amount { font-weight: bold; font-size: 15px; }
         .green { color: #4caf50; }
         .white { color: #ffffff; }
 
         .nav-bar {
-            position: fixed; bottom: 0; left: 0;
-            width: 100%; height: 60px;
-            background: #181818;
-            border-top: 1px solid #2a2a2a;
-            display: flex; justify-content: space-around; align-items: center;
-            box-sizing: border-box;
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 60px;
+            background: #181818; border-top: 1px solid #2a2a2a;
+            display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
         }
         .nav-item {
-            background: none; border: none;
-            color: #777; font-size: 11px;
-            display: flex; flex-direction: column; align-items: center;
-            cursor: pointer; width: 33%; padding: 0;
+            background: none; border: none; color: #777; font-size: 11px;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 33%; padding: 0;
         }
         .nav-item.active { color: #4caf50; }
         .nav-icon { font-size: 18px; margin-bottom: 2px; }
@@ -125,18 +79,15 @@
             background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
         }
         .modal-content {
-            background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px;
-            box-sizing: border-box;
+            background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-sizing: border-box;
         }
     </style>
 </head>
 <body>
 
-    <!-- Шапка с общим балансом и курсами -->
     <div class="header">
         <div class="balance-title">Общий баланс (в гривне)</div>
         <div class="balance-amount" id="totalBalance">0.00 ₴</div>
-        
         <div class="rates-container">
             <div class="rate-item">USD: <span id="rateUsd" class="rate-val">-</span></div>
             <div class="rate-item">EUR: <span id="rateEur" class="rate-val">-</span></div>
@@ -155,8 +106,9 @@
         <div class="section-header">Добавить операцию</div>
         <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
             <select id="opAccountSelect"></select>
+            <select id="opCategorySelect"></select>
             <input type="number" id="manualAmount" placeholder="Сумма (-150 или 500)">
-            <input type="text" id="manualDesc" placeholder="Описание (Продукты, Зарплата...)">
+            <input type="text" id="manualDesc" placeholder="Описание (напр. Супермаркет)">
             <select id="manualType">
                 <option value="expense">Расход</option>
                 <option value="income">Доход</option>
@@ -164,7 +116,13 @@
             <button id="addManualBtn">Сохранить</button>
         </div>
 
-        <div class="section-header">История</div>
+        <div class="section-header">Категории</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="newCatName" placeholder="Новая категория" style="margin:0;">
+            <button class="btn-sm" onclick="createCategory()">Добавить</button>
+        </div>
+
+        <div class="section-header">История (нажми для редактирования)</div>
         <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
         <div id="transactions"></div>
     </div>
@@ -201,14 +159,28 @@
         </div>
     </div>
 
+    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ ТРАНЗАКЦИИ -->
+    <div id="editTxModal" class="modal">
+        <div class="modal-content">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
+            <input type="hidden" id="editTxId">
+            <select id="editTxAccount"></select>
+            <select id="editTxCategory"></select>
+            <input type="number" id="editTxAmount" placeholder="Сумма">
+            <input type="text" id="editTxDesc" placeholder="Описание">
+            <button onclick="saveEditedTransaction()">Сохранить изменения</button>
+            <button class="btn-danger" onclick="deleteTransaction()">Удалить операцию</button>
+            <button class="btn-secondary" onclick="closeModal('editTxModal')">Отмена</button>
+        </div>
+    </div>
+
     <!-- МОДАЛКА КОРРЕКТИРОВКИ БАЛАНСА -->
     <div id="adjustModal" class="modal">
         <div class="modal-content">
-            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Сверка / Коррекция баланса</div>
-            <p style="font-size: 13px; color: #888; margin-bottom: 10px;">Введите реальную сумму, которую вы видите на счете прямо сейчас:</p>
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Сверка баланса</div>
             <input type="hidden" id="adjustAccId">
             <input type="number" id="adjustRealAmount" placeholder="Реальный баланс">
-            <button onclick="saveBalanceAdjustment()">Сохранить корректировку</button>
+            <button onclick="saveBalanceAdjustment()">Сохранить</button>
             <button class="btn-secondary" onclick="closeModal('adjustModal')">Отмена</button>
         </div>
     </div>
