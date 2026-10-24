@@ -132,28 +132,38 @@
         <div class="section-header">Управление данными</div>
         <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа (JSON)</button>
     </div>
-
-    <!-- МОДАЛКА ДОБАВЛЕНИЯ СЧЕТА -->
+<!-- МОДАЛКА ДОБАВЛЕНИЯ СЧЕТА -->
     <div id="accountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
-            <input type="text" id="accName" placeholder="Название (напр. Наличные USD)">
-            <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
-            <select id="accCurrency">
-                <option value="UAH">Гривна (₴)</option>
-                <option value="USD">Доллар ($)</option>
-                <option value="EUR">Евро (€)</option>
-            </select>
+            <input type="text" id="accName" placeholder="Название счета (напр. Моно Личная)">
+            
             <select id="accType" onchange="toggleBankSelect()">
                 <option value="cash">Наличные / Обычный</option>
-                <option value="bank">Банк</option>
+                <option value="bank">Банк (Monobank)</option>
             </select>
-            <div id="bankFields" style="display: none;">
-                <select id="bankName">
-                    <option value="monobank">Monobank</option>
+
+            <!-- Поля для обычного счета -->
+            <div id="cashFields">
+                <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
+                <select id="accCurrency">
+                    <option value="UAH">Гривна (₴)</option>
+                    <option value="USD">Доллар ($)</option>
+                    <option value="EUR">Евро (€)</option>
                 </select>
-                <input type="text" id="bankToken" placeholder="Токен Монобанка (X-Token)">
             </div>
+
+            <!-- Поля для Монобанка -->
+            <div id="bankFields" style="display: none;">
+                <input type="text" id="bankToken" placeholder="Токен Монобанка (X-Token)">
+                <button class="btn-secondary btn-sm" style="margin-bottom: 10px; width: 100%;" onclick="loadMonoAccountsList()">Получить список карт</button>
+                
+                <div id="monoCardsContainer" style="display: none; margin-bottom: 10px;">
+                    <label style="font-size: 12px; color: #888;">Выберите карту из Монобанка:</label>
+                    <select id="monoCardSelect"></select>
+                </div>
+            </div>
+
             <button onclick="createAccount()">Создать счет</button>
             <button class="btn-secondary" onclick="closeModal('accountModal')">Отмена</button>
         </div>
