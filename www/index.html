@@ -13,29 +13,40 @@
             padding: 20px;
         }
         h2 { color: #4caf50; text-align: center; }
-        input {
+        
+        .section {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+        .section-title { font-weight: bold; margin-bottom: 10px; color: #ff5722; }
+
+        input, select {
             width: 100%;
             box-sizing: border-box;
             padding: 12px;
-            margin-top: 10px;
+            margin-bottom: 10px;
             border-radius: 8px;
             border: 1px solid #333;
-            background: #1e1e1e;
+            background: #2a2a2a;
             color: white;
+            font-size: 15px;
         }
         button {
             width: 100%;
-            padding: 14px;
-            margin-top: 15px;
+            padding: 12px;
             border-radius: 8px;
             border: none;
-            background: #4caf50;
             color: white;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: bold;
+            cursor: pointer;
         }
-        button:active { background: #388e3c; }
-        .status { text-align: center; margin-top: 15px; font-size: 14px; }
+        .btn-mono { background: #ff5722; }
+        .btn-add { background: #4caf50; margin-top: 5px; }
+        
+        .status { text-align: center; margin: 15px 0; font-size: 14px; min-height: 20px; }
         .tx-card {
             background: #1e1e1e;
             padding: 15px;
@@ -44,22 +55,42 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-left: 4px solid #4caf50;
         }
-        .tx-info { display: flex; flex-direction: column; }
-        .tx-desc { font-weight: bold; font-size: 15px; }
+        .border-mono { border-left-color: #ff5722; }
+        .border-manual { border-left-color: #4caf50; }
+        
+        .tx-info { display: flex; flex-direction: column; width: 70%; }
+        .tx-desc { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tx-date { font-size: 12px; color: #888; margin-top: 4px; }
-        .tx-amount { font-weight: bold; font-size: 16px; }
-        .green { color: #4caf50; } /* Доход */
-        .white { color: #ffffff; } /* Расход */
+        .tx-amount { font-weight: bold; font-size: 16px; white-space: nowrap; }
+        .green { color: #4caf50; }
+        .white { color: #ffffff; }
     </style>
 </head>
 <body>
     <h2>ZenLocal</h2>
     
-    <input type="text" id="monoToken" placeholder="Вставь токен Монобанка">
-    <button id="syncBtn">Синхронизировать Монобанк</button>
+    <!-- Синхронизация Монобанка -->
+    <div class="section">
+        <div class="section-title">Monobank</div>
+        <input type="text" id="monoToken" placeholder="Токен Монобанка">
+        <button id="syncMonoBtn" class="btn-mono">Синхронизировать Mono</button>
+    </div>
+
+    <!-- Ручное добавление (Приват, наличные и т.д.) -->
+    <div class="section">
+        <div class="section-title" style="color: #4caf50;">Ручной ввод (Приват / Наличные)</div>
+        <input type="number" id="manualAmount" placeholder="Сумма (например, -150 или 5000)">
+        <input type="text" id="manualDesc" placeholder="Описание (например, Продукты, Зарплата)">
+        <select id="manualType">
+            <option value="expense">Расход</option>
+            <option value="income">Доход</option>
+        </select>
+        <button id="addManualBtn" class="btn-add">Добавить запись</button>
+    </div>
     
-    <div id="status" class="status"></div>
+    <div id="status" class="status">Готово к работе</div>
     <div id="transactions"></div>
 
     <script src="js/app.js"></script>
