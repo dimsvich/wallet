@@ -115,6 +115,7 @@ window.loadMonoAccountsList = async function () {
           id: acc.id,
           currencyCode: acc.currencyCode,
           balance: acc.balance,
+          creditLimit: acc.creditLimit || 0,
           typeName: typeName,
         });
         opt.innerText = `${typeName} (${balance} ${currencySymbol})`;
@@ -154,6 +155,7 @@ window.createAccount = async function () {
       id: "acc_" + Date.now(),
       name: nameInput || cardInfo.typeName,
       startBalance: cardInfo.balance,
+      creditLimit: cardInfo.creditLimit || 0,
       currency: currency,
       type: "bank",
       bank: "monobank",
@@ -174,6 +176,7 @@ window.createAccount = async function () {
       id: "acc_" + Date.now(),
       name: nameInput,
       startBalance: Math.round(startBalance * 100),
+      creditLimit: 0,
       currency: currency,
       type: "cash",
       bank: null,
@@ -416,7 +419,7 @@ window.saveBalanceAdjustment = async function () {
   await refreshAppData();
 };
 
-// Синхронизация Монобанка с проверкой баланса и фильтрацией по bankAccountId
+// Синхронизация Монобанка с проверкой баланса и лимита
 window.syncMonoAccount = async function (accountId, token) {
   const statusEl = document.getElementById("status");
   if (statusEl) statusEl.innerText = "Синхронизация Монобанка...";
@@ -471,9 +474,16 @@ window.syncMonoAccount = async function (accountId, token) {
           : clientData.accounts[0];
 
         const realBalanceInKopecks = bankAccount.balance;
+        const realCreditLimit = bankAccount.creditLimit || 0; // Получаем кредитный лимит
         const updatedTransactions = await getAllTransactions();
 
         if (targetAcc) {
+          // Если лимит изменился — обновляем в БД
+          if (targetAcc.creditLimit !== realCreditLimit) {
+            targetAcc.creditLimit = realCreditLimit;
+            await saveAccount(targetAcc);
+          }
+
           let internalBalance = targetAcc.startBalance;
           updatedTransactions.forEach((tx) => {
             if (tx.accountId === accountId) internalBalance += tx.amount;
@@ -644,13 +654,27 @@ async function refreshAppData() {
       if (tx.accountId === acc.id) accBalance += tx.amount;
     });
 
-    let balanceInUAH = accBalance;
-    if (acc.currency === "USD") balanceInUAH = accBalance * exchangeRates.USD;
-    if (acc.currency === "EUR") balanceInUAH = accBalance * exchangeRates.EUR;
+    // Расчет лимитов
+    let creditLimit = acc.creditLimit || 0;
+    let ownFunds = accBalance - creditLimit;
+
+    let balanceInUAH = ownFunds;
+    if (acc.currency === "USD") balanceInUAH = ownFunds * exchangeRates.USD;
+    if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
     totalGlobalBalanceUAH += balanceInUAH;
 
     const symbol =
       acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
+    const ownFundsStr = (ownFunds / 100).toFixed(2);
+    const availableStr = (accBalance / 100).toFixed(2);
+
+    let sumHtml = `<div class="account-sum">${ownFundsStr} ${symbol}</div>`;
+    if (creditLimit > 0) {
+      sumHtml = `
+            <div class="account-sum" style="color: ${ownFunds < 0 ? "#f44336" : "white"};">${ownFundsStr} ${symbol}</div>
+            <div style="font-size: 11px; color: #888; text-align: right; margin-top: 3px;">Доступно: ${availableStr} ${symbol}</div>
+        `;
+    }
 
     const card = document.createElement("div");
     card.className = "account-card";
@@ -663,13 +687,15 @@ async function refreshAppData() {
                     ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Sync</button>` : ""}
                 </div>
             </div>
-            <div class="account-sum">${(accBalance / 100).toFixed(2)} ${symbol}</div>
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">
+                ${sumHtml}
+            </div>
         `;
     accountsList.appendChild(card);
 
     const opt = document.createElement("option");
     opt.value = acc.id;
-    opt.innerText = `${acc.name} (${(accBalance / 100).toFixed(2)} ${symbol})`;
+    opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
     opAccountSelect.appendChild(opt);
   });
 
@@ -688,7 +714,6 @@ async function refreshAppData() {
   document.getElementById("totalBalance").innerText =
     (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
 
-  // --- Отрисовка вкладки категорий ---
   const categoriesList = document.getElementById("categoriesList");
   if (categoriesList) {
     categoriesList.innerHTML = "";
