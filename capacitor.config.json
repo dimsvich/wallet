@@ -1,16 +1,5 @@
 {
   "appId": "com.zenlocal.app",
   "appName": "ZenLocal",
-  "webDir": "www",
-  "plugins": {
-    "GoogleAuth": {
-      "scopes": [
-        "email",
-        "profile",
-        "https://www.googleapis.com/auth/drive.appdata"
-      ],
-      "serverClientId": "890708614909-kbcj733qlet8g8kapjq0kiikvmi8rpda.apps.googleusercontent.com",
-      "forceCodeForRefreshToken": true
-    }
-  }
+  "webDir": "www"
 }

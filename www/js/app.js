@@ -1077,57 +1077,68 @@ async function restoreDatabase(data) {
 // ИНТЕГРАЦИЯ GOOGLE DRIVE (APPDATA)
 // ==========================================
 
+// Вход через нативный плагин @capgo/capacitor-social-login
+let socialLoginReady = false;
+
+window.connectGoogleAccount = async function () {
+  try {
+    const SocialLogin =
+      window.Capacitor &&
+      window.Capacitor.Plugins &&
+      window.Capacitor.Plugins.SocialLogin;
+
+    if (!SocialLogin) {
+      alert(
+        "Плагин Google-входа не найден. Он работает только в установленном приложении.",
+      );
+      return;
+    }
+
+    // Инициализация нужна один раз. Здесь именно WEB client ID
+    if (!socialLoginReady) {
+      await SocialLogin.initialize({
+        google: { webClientId: GOOGLE_CLIENT_ID },
+      });
+      socialLoginReady = true;
+    }
+
+    const res = await SocialLogin.login({
+      provider: "google",
+      options: {
+        scopes: ["https://www.googleapis.com/auth/drive.appdata"],
+      },
+    });
+
+    const at = res && res.result && res.result.accessToken;
+    const token = typeof at === "string" ? at : at && at.token;
+    if (!token) {
+      throw new Error(
+        "В ответе нет access token. Поля ответа: " +
+          Object.keys((res && res.result) || {}).join(", "),
+      );
+    }
+
+    currentGoogleToken = token;
+    localStorage.setItem("google_access_token", currentGoogleToken);
+
+    updateGoogleUI(true);
+    await checkAndSyncCloudOnLogin();
+    alert("Успешный вход в Google Аккаунт!");
+  } catch (error) {
+    console.error("Ошибка входа через Google:", error);
+    alert("Не удалось войти: " + (error.message || error));
+  }
+};
+
+// При запуске: если токен уже сохранён, пробуем использовать его
 document.addEventListener("DOMContentLoaded", () => {
   setTimeout(() => {
-    if (window.google) {
-      googleTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: GOOGLE_CLIENT_ID,
-        scope: "https://www.googleapis.com/auth/drive.appdata",
-        callback: async (response) => {
-          if (response.error) {
-            console.error("Ошибка авторизации:", response);
-            return;
-          }
-          currentGoogleToken = response.access_token;
-          localStorage.setItem("google_access_token", currentGoogleToken);
-          updateGoogleUI(true);
-          await checkAndSyncCloudOnLogin();
-        },
-      });
-
-      if (currentGoogleToken) {
-        updateGoogleUI(true);
-        checkAndSyncCloudOnLogin();
-      }
+    if (currentGoogleToken) {
+      updateGoogleUI(true);
+      checkAndSyncCloudOnLogin();
     }
   }, 1000);
 });
-
-// Нативный вход через Google Auth плагин
-window.connectGoogleAccount = async function () {
-  try {
-    // Проверяем, подключен ли плагин Capacitor
-    if (
-      window.Capacitor &&
-      window.Capacitor.Plugins &&
-      window.Capacitor.Plugins.GoogleAuth
-    ) {
-      const googleUser = await window.Capacitor.Plugins.GoogleAuth.signIn();
-      currentGoogleToken = googleUser.authentication.accessToken;
-      localStorage.setItem("google_access_token", currentGoogleToken);
-
-      updateGoogleUI(true);
-      await checkAndSyncCloudOnLogin();
-      alert("Успешный вход в Google Аккаунт!");
-    } else {
-      // Запасной вариант для обычной веб-версии в браузере, если зашли с ПК
-      alert("Нативный Google Auth доступен только в мобильном приложении.");
-    }
-  } catch (error) {
-    console.error("Ошибка входа через Google:", error);
-    alert("Не удалось войти: " + (error.message || "отменено пользователем"));
-  }
-};
 
 function updateGoogleUI(isConnected) {
   const status = document.getElementById("googleStatus");
@@ -1156,7 +1167,12 @@ async function findCloudBackupFile() {
     },
   );
   if (!response.ok) {
-    if (response.status === 401) localStorage.removeItem("google_access_token");
+    if (response.status === 401) {
+      // токен истёк (живёт около часа): нужно войти заново
+      localStorage.removeItem("google_access_token");
+      currentGoogleToken = null;
+      updateGoogleUI(false);
+    }
     throw new Error("Ошибка поиска файла в Drive");
   }
   const data = await response.json();
@@ -1199,7 +1215,9 @@ window.forceBackupToCloud = async function () {
 
   try {
     const existingFileId = await findCloudBackupFile();
-    const metadata = { name: "zenlocal_sync.json", parents: ["appDataFolder"] };
+    // parents можно указывать только при создании файла, при обновлении (PATCH) Drive вернёт 403
+    const metadata = { name: "zenlocal_sync.json" };
+    if (!existingFileId) metadata.parents = ["appDataFolder"];
 
     const form = new FormData();
     form.append(

@@ -1,12 +1,37 @@
 package com.zenlocal.app;
 
+import android.content.Intent;
+import android.util.Log;
 import com.getcapacitor.BridgeActivity;
-import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth;
+import com.getcapacitor.Plugin;
+import com.getcapacitor.PluginHandle;
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 
-public class MainActivity extends BridgeActivity {
-    @Override
-    protected void onCreate(android.os.Bundle savedInstanceState) {
-        registerPlugin(GoogleAuth.class);
-        super.onCreate(savedInstanceState);
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+
+  @Override
+  public void onActivityResult(int requestCode, int resultCode, Intent data) {
+    super.onActivityResult(requestCode, resultCode, data);
+
+    if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN
+        && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+      PluginHandle handle = getBridge().getPlugin("SocialLogin");
+      if (handle == null) {
+        Log.i("GoogleAuth", "SocialLogin handle is null");
+        return;
+      }
+      Plugin plugin = handle.getInstance();
+      if (!(plugin instanceof SocialLoginPlugin)) {
+        Log.i("GoogleAuth", "SocialLogin instance is not SocialLoginPlugin");
+        return;
+      }
+      ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
     }
+  }
+
+  // Этот метод не вызывается, но интерфейс плагина требует его наличия
+  @Override
+  public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
 }
