@@ -10,12 +10,16 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import com.getcapacitor.BridgeActivity;
+import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth; // <-- ИМПОРТ ПЛАГИНА GOOGLE
 
 public class MainActivity extends BridgeActivity {
     private BroadcastReceiver pushReceiver;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Регистрация плагина Google Auth (Обязательно для использования scopes)
+        registerPlugin(GoogleAuth.class); 
+        
         super.onCreate(savedInstanceState);
 
         pushReceiver = new BroadcastReceiver() {
@@ -36,7 +40,6 @@ public class MainActivity extends BridgeActivity {
         };
         
         IntentFilter filter = new IntentFilter("com.zenlocal.app.NEW_BANK_PUSH");
-        // Современная регистрация приемника для новых версий Android
         if (android.os.Build.VERSION.SDK_INT >= 33) {
             registerReceiver(pushReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         } else {
