@@ -947,21 +947,123 @@ async function refreshAppData() {
     renderAnalytics();
 }
 
+// --- ЭКСПОРТ (С поддержкой нативного меню Android Share) ---
 window.exportData = async function () {
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
   const transactions = await getAllTransactions();
+
   const backup = {
+    appName: "ZenLocal",
+    version: "1.0",
+    date: new Date().toISOString(),
     accounts,
     categories,
     transactions,
-    date: new Date().toISOString(),
   };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {
-    type: "application/json",
-  });
+
+  const jsonStr = JSON.stringify(backup, null, 2);
+  const fileName = `zenlocal_backup_${Date.now()}.json`;
+
+  // Создаем файл
+  const blob = new Blob([jsonStr], { type: "application/json" });
+  const file = new File([blob], fileName, { type: "application/json" });
+
+  // Пытаемся использовать нативное меню "Поделиться" (Android/iOS)
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({
+        files: [file],
+        title: "Резервная копия ZenLocal",
+        text: "Файл резервной копии базы данных ZenLocal",
+      });
+      return; // Успешно поделились, прерываем функцию
+    } catch (e) {
+      console.log(
+        "Шаринг отменен или не удался, пробуем обычное скачивание",
+        e,
+      );
+    }
+  }
+
+  // Запасной вариант (обычное скачивание в папку Downloads)
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = `zenlocal_backup_${Date.now()}.json`;
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
+
+// --- ИМПОРТ И ВОССТАНОВЛЕНИЕ ДАННЫХ ---
+document.addEventListener("DOMContentLoaded", () => {
+  const importInput = document.getElementById("importFile");
+  if (importInput) {
+    importInput.addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function (event) {
+        try {
+          const data = JSON.parse(event.target.result);
+
+          // Простейшая проверка, что это наш файл
+          if (!data.accounts || !data.categories || !data.transactions) {
+            alert("Ошибка: Неверный формат файла резервной копии.");
+            importInput.value = ""; // Сбрасываем инпут
+            return;
+          }
+
+          if (
+            confirm(
+              "ВНИМАНИЕ!\n\nТекущие данные будут удалены и заменены данными из копии.\nПродолжить?",
+            )
+          ) {
+            await restoreDatabase(data);
+            alert("Данные успешно восстановлены!");
+            importInput.value = ""; // Сбрасываем инпут
+            await refreshAppData();
+          } else {
+            importInput.value = "";
+          }
+        } catch (err) {
+          console.error(err);
+          alert(
+            "Ошибка при чтении файла. Убедитесь, что выбран правильный JSON-бэкап.",
+          );
+          importInput.value = "";
+        }
+      };
+      reader.readAsText(file);
+    });
+  }
+});
+
+// Функция полной очистки и перезаписи базы при импорте
+async function restoreDatabase(data) {
+  return new Promise((resolve, reject) => {
+    // Очищаем все хранилища
+    const tx = db.transaction(
+      ["accounts", "categories", "transactions"],
+      "readwrite",
+    );
+    const accStore = tx.objectStore("accounts");
+    const catStore = tx.objectStore("categories");
+    const transStore = tx.objectStore("transactions");
+
+    accStore.clear();
+    catStore.clear();
+    transStore.clear();
+
+    // Заливаем новые данные
+    data.accounts.forEach((acc) => accStore.put(acc));
+    data.categories.forEach((cat) => catStore.put(cat));
+    data.transactions.forEach((t) => transStore.put(t));
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}

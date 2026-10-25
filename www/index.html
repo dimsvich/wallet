@@ -175,10 +175,24 @@
         <div id="categoriesList"></div>
     </div>
 
-    <!-- ВКЛАДКА 5: НАСТРОЙКИ -->
+<!-- ВКЛАДКА 5: НАСТРОЙКИ -->
     <div id="tab-settings" class="tab-content container">
-        <div class="section-header">Управление данными</div>
-        <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа (JSON)</button>
+        <div class="section-header">Резервное копирование</div>
+        
+        <div class="account-card" style="flex-direction: column; align-items: stretch; gap: 10px;">
+            <p style="font-size: 13px; color: #888; margin: 0 0 10px 0;">
+                Экспорт создаст файл бэкапа. Вы сможете сохранить его в Google Drive, Telegram или локально.
+            </p>
+            <button onclick="exportData()">📤 Экспортировать данные</button>
+            
+            <hr style="border-color: #333; width: 100%; margin: 10px 0;">
+            
+            <p style="font-size: 13px; color: #888; margin: 0 0 10px 0;">
+                Импорт полностью <b>заменит</b> текущие данные на те, что в файле резервной копии.
+            </p>
+            <input type="file" id="importFile" accept=".json" style="display: none;">
+            <button class="btn-secondary" onclick="document.getElementById('importFile').click()">📥 Восстановить из файла</button>
+        </div>
     </div>
 
     <!-- МОДАЛКИ -->
