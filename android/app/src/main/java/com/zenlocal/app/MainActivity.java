@@ -10,16 +10,12 @@ import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import com.getcapacitor.BridgeActivity;
-import com.codetrixstudio.capacitor.GoogleAuth.GoogleAuth; // <-- ИМПОРТ ПЛАГИНА GOOGLE
 
 public class MainActivity extends BridgeActivity {
     private BroadcastReceiver pushReceiver;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // Регистрация плагина Google Auth (Обязательно для использования scopes)
-        registerPlugin(GoogleAuth.class); 
-        
         super.onCreate(savedInstanceState);
 
         pushReceiver = new BroadcastReceiver() {
