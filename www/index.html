@@ -64,10 +64,10 @@
             background: #181818; border-top: 1px solid #2a2a2a;
             display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
         }
-        /* Ширина вкладок изменена на 20% (так как их 5) */
+        /* Вкладок стало 6, используем flex: 1 для равномерного распределения */
         .nav-item {
             background: none; border: none; color: #777; font-size: 10px;
-            display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 20%; padding: 0;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer; flex: 1; padding: 0;
         }
         .nav-item.active { color: #4caf50; }
         .nav-icon { font-size: 18px; margin-bottom: 2px; }
@@ -91,6 +91,13 @@
         .category-usage { font-size: 12px; color: #888; margin-top: 3px; }
         .category-actions { display: flex; gap: 8px; }
         .category-actions button { width: auto; padding: 5px 10px; font-size: 12px; margin: 0; }
+
+        /* Стили для легенды аналитики */
+        .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2a2a2a; }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; }
+        .legend-name { flex: 1; font-size: 14px; }
+        .legend-amount { font-weight: bold; font-size: 14px; }
+        .legend-percent { font-size: 12px; color: #888; margin-left: 10px; width: 35px; text-align: right; }
     </style>
 </head>
 <body>
@@ -104,17 +111,16 @@
         </div>
     </div>
 
-    <!-- ВКЛАДКА 0: ГЛАВНАЯ (Дашборд) -->
+    <!-- ВКЛАДКА 0: ГЛАВНАЯ -->
     <div id="tab-home" class="tab-content active container">
         <div class="section-header">Сводка по счетам</div>
         <div id="homeStatus" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
         <div id="homeAccountsList"></div>
-
         <div class="section-header">Последние операции</div>
         <div id="homeTransactions"></div>
     </div>
 
-    <!-- ВКЛАДКА 1: СЧЕТА (Управление) -->
+    <!-- ВКЛАДКА 1: СЧЕТА -->
     <div id="tab-accounts" class="tab-content container">
         <div class="section-header">Управление счетами</div>
         <div id="accountsList"></div>
@@ -135,13 +141,31 @@
             </select>
             <button id="addManualBtn">Сохранить</button>
         </div>
-
         <div class="section-header">История операций</div>
         <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
         <div id="transactions"></div>
     </div>
 
-    <!-- ВКЛАДКА 3: КАТЕГОРИИ -->
+    <!-- ВКЛАДКА 3: АНАЛИТИКА -->
+    <div id="tab-analytics" class="tab-content container">
+        <div class="section-header">Аналитика</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <select id="analyticsMonth" onchange="renderAnalytics()"></select>
+            <select id="analyticsType" onchange="renderAnalytics()">
+                <option value="expense">Расходы</option>
+                <option value="income">Доходы</option>
+            </select>
+        </div>
+        
+        <!-- Холст для отрисовки диаграммы без сторонних библиотек -->
+        <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+            <canvas id="analyticsChart" width="240" height="240"></canvas>
+        </div>
+        
+        <div id="analyticsLegend"></div>
+    </div>
+
+    <!-- ВКЛАДКА 4: КАТЕГОРИИ -->
     <div id="tab-categories" class="tab-content container">
         <div class="section-header">Мои категории</div>
         <div style="display: flex; gap: 10px; margin-bottom: 15px;">
@@ -151,17 +175,17 @@
         <div id="categoriesList"></div>
     </div>
 
-    <!-- ВКЛАДКА 4: НАСТРОЙКИ -->
+    <!-- ВКЛАДКА 5: НАСТРОЙКИ -->
     <div id="tab-settings" class="tab-content container">
         <div class="section-header">Управление данными</div>
         <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа (JSON)</button>
     </div>
 
-    <!-- МОДАЛКИ (Оставил без изменений) -->
+    <!-- МОДАЛКИ -->
     <div id="accountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
-            <input type="text" id="accName" placeholder="Название счета (напр. Моно Личная)">
+            <input type="text" id="accName" placeholder="Название счета">
             <select id="accType" onchange="toggleBankSelect()">
                 <option value="cash">Наличные / Обычный</option>
                 <option value="bank">Банк (Monobank)</option>
@@ -221,23 +245,14 @@
         </div>
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ С НОВОЙ ВКЛАДКОЙ -->
+    <!-- НИЖНЯЯ ПАНЕЛЬ -->
     <nav class="nav-bar">
-        <button class="nav-item active" onclick="switchTab('home', this)">
-            <span class="nav-icon">🏠</span> Главная
-        </button>
-        <button class="nav-item" onclick="switchTab('accounts', this)">
-            <span class="nav-icon">💳</span> Счета
-        </button>
-        <button class="nav-item" onclick="switchTab('operations', this)">
-            <span class="nav-icon">📑</span> Операции
-        </button>
-        <button class="nav-item" onclick="switchTab('categories', this)">
-            <span class="nav-icon">📂</span> Категории
-        </button>
-        <button class="nav-item" onclick="switchTab('settings', this)">
-            <span class="nav-icon">⚙️</span> Еще
-        </button>
+        <button class="nav-item active" onclick="switchTab('home', this)"><span class="nav-icon">🏠</span>Главная</button>
+        <button class="nav-item" onclick="switchTab('accounts', this)"><span class="nav-icon">💳</span>Счета</button>
+        <button class="nav-item" onclick="switchTab('operations', this)"><span class="nav-icon">📑</span>Операции</button>
+        <button class="nav-item" onclick="switchTab('analytics', this)"><span class="nav-icon">📊</span>Аналитика</button>
+        <button class="nav-item" onclick="switchTab('categories', this)"><span class="nav-icon">📂</span>Категории</button>
+        <button class="nav-item" onclick="switchTab('settings', this)"><span class="nav-icon">⚙️</span>Еще</button>
     </nav>
 
     <script src="js/app.js"></script>
@@ -247,6 +262,7 @@
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
             btn.classList.add('active');
+            if(tabName === 'analytics') renderAnalytics(); // Отрисовываем график при переходе на вкладку
         }
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
