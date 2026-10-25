@@ -1,37 +1,49 @@
 package com.zenlocal.app;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
-import android.util.Log;
+import android.content.IntentFilter;
+import android.os.Bundle;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import com.getcapacitor.BridgeActivity;
-import com.getcapacitor.Plugin;
-import com.getcapacitor.PluginHandle;
-import ee.forgr.capacitor.social.login.GoogleProvider;
-import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
-import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 
-public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
+public class MainActivity extends BridgeActivity {
+    private BroadcastReceiver pushReceiver;
 
-  @Override
-  public void onActivityResult(int requestCode, int resultCode, Intent data) {
-    super.onActivityResult(requestCode, resultCode, data);
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-    if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN
-        && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
-      PluginHandle handle = getBridge().getPlugin("SocialLogin");
-      if (handle == null) {
-        Log.i("GoogleAuth", "SocialLogin handle is null");
-        return;
-      }
-      Plugin plugin = handle.getInstance();
-      if (!(plugin instanceof SocialLoginPlugin)) {
-        Log.i("GoogleAuth", "SocialLogin instance is not SocialLoginPlugin");
-        return;
-      }
-      ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+        pushReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String text = intent.getStringExtra("text");
+                long time = intent.getLongExtra("time", 0);
+                
+                if (text != null) {
+                    // Экранируем переносы строк для передачи в JS
+                    String safeText = text.replace("\n", "\\n").replace("'", "\\'");
+                    String jsCode = "if(window.processPushNotification) { window.processPushNotification('" + safeText + "', " + time + "); }";
+                    
+                    // Запускаем твою JS-функцию прямо в Capacitor WebView
+                    getBridge().getWebView().post(() -> {
+                        getBridge().getWebView().evaluateJavascript(jsCode, null);
+                    });
+                }
+            }
+        };
+        
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+                pushReceiver, new IntentFilter("com.zenlocal.app.NEW_BANK_PUSH")
+        );
     }
-  }
 
-  // Этот метод не вызывается, но интерфейс плагина требует его наличия
-  @Override
-  public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (pushReceiver != null) {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(pushReceiver);
+        }
+    }
 }
