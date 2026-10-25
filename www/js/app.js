@@ -1412,3 +1412,83 @@ window.processPushNotification = async function (
   tx.onerror = (e) =>
     console.error("Ошибка сохранения транзакции Приват24:", e);
 };
+
+// ==========================================
+// ИНТЕГРАЦИЯ ПРИВАТ24 (ОБРАБОТКА ПУШЕЙ)
+// ==========================================
+window.processPushNotification = async function(rawText, postTime = Date.now()) {
+    if (typeof BankNotifyParser === 'undefined') {
+        console.error("❌ Ошибка: BankNotifyParser не загружен!");
+        return;
+    }
+
+    // 1. Парсим текст пуша через твой скрипт
+    const parsed = BankNotifyParser.parsePrivatNotification({ text: rawText, postTime: postTime });
+    
+    if (!parsed.ok) {
+        console.log(" Пуш проигнорирован (не финансовая операция):", parsed.reason);
+        return;
+    }
+
+    console.log(" Распознан платеж Приват24:", parsed);
+
+    // 2. Ищем счет типа 'privat' в IndexedDB
+    if (!window.db) {
+        console.error("❌ База данных IndexedDB еще не инициализирована");
+        return;
+    }
+
+    const transaction = db.transaction(["accounts", "transactions"], "readwrite");
+    const accountsStore = transaction.objectStore("accounts");
+    
+    accountsStore.getAll().onsuccess = async function(event) {
+        const accounts = event.target.result;
+        let targetAccount = null;
+
+        for (const acc of accounts) {
+            if (acc.type === 'privat') {
+                // Если маска пустая или совпадает с картой из пуша
+                if (!acc.cardMask || acc.cardMask === parsed.cardMask) {
+                    targetAccount = acc;
+                    break;
+                }
+            }
+        }
+
+        if (!targetAccount) {
+            console.warn(`⚠️ Операция по карте ${parsed.cardMask}, но счет Приват24 в приложении не найден!`);
+            return;
+        }
+
+        // 3. Создаем объект транзакции
+        const newTransaction = {
+            id: "tx_" + Date.now(),
+            accountId: targetAccount.id,
+            categoryId: null, // Категорию можно будет выбрать в приложении
+            type: parsed.type, // 'income' или 'expense'
+            amount: Math.round(parsed.amount * 100), // В копейках
+            date: new Date(parsed.opTime).toISOString(),
+            comment: `${parsed.kind}. ${parsed.details}`.trim(),
+            commission: Math.round((parsed.commission || 0) * 100)
+        };
+
+        // 4. Обновляем баланс счета
+        if (parsed.balanceAfter !== null) {
+            targetAccount.startBalance = Math.round(parsed.balanceAfter * 100);
+        } else {
+            targetAccount.startBalance += Math.round(parsed.signedAmount * 100) - newTransaction.commission;
+        }
+
+        // 5. Записываем в базу
+        const writeTx = db.transaction(["accounts", "transactions"], "readwrite");
+        writeTx.objectStore("accounts").put(targetAccount);
+        writeTx.objectStore("transactions").put(newTransaction);
+
+        writeTx.oncomplete = () => {
+            console.log("✅ Успешно сохранено в базу из Приват24!");
+            if (typeof refreshAppData === 'function') {
+                refreshAppData();
+            }
+        };
+    };
+};
