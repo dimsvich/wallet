@@ -159,14 +159,10 @@ window.createAccount = async function () {
   let newAccount = {};
 
   if (type === "bank") {
-    // === ЛОГИКА MONOBANK ===
+    // Монобанк
     const token = document.getElementById("bankToken").value.trim();
     const cardSelectStr = document.getElementById("monoCardSelect").value;
-
-    if (!token || !cardSelectStr) {
-      return alert("Введите токен и выберите карту");
-    }
-
+    if (!token || !cardSelectStr) return alert("Введите токен и выберите карту");
     const cardInfo = JSON.parse(cardSelectStr);
     let currency = "UAH";
     if (cardInfo.currencyCode === 840) currency = "USD";
@@ -184,34 +180,30 @@ window.createAccount = async function () {
       bankAccountId: cardInfo.id,
     };
   } else if (type === "privat") {
-    // === НОВАЯ ЛОГИКА PRIVAT24 (PUSH) ===
+    // ПриватБанк (Push)
     if (!nameInput) return alert("Введите название счета");
-
-    const startBalance =
-      parseFloat(document.getElementById("accStartBalance").value) || 0;
+    const startBalance = parseFloat(document.getElementById("accStartBalance").value) || 0;
     const currency = document.getElementById("accCurrency").value;
     const cardMask = document.getElementById("privatCardMask").value.trim();
 
     newAccount = {
       id: "acc_" + Date.now(),
       name: nameInput,
-      startBalance: Math.round(startBalance * 100), // Перевод в копейки, как в cash
+      startBalance: Math.round(startBalance * 100),
       creditLimit: 0,
       currency: currency,
-      type: "privat",
+      type: "privat", // СТРОГО ТИП privat
       bank: "privat24",
       token: null,
       bankAccountId: null,
-      cardMask: cardMask, // Маска для привязки пушей
+      cardMask: cardMask
     };
   } else {
-    // === ЛОГИКА НАЛИЧНЫХ (CASH) ===
+    // Наличные
     if (!nameInput) return alert("Введите название счета");
-
-    const startBalance =
-      parseFloat(document.getElementById("accStartBalance").value) || 0;
+    const startBalance = parseFloat(document.getElementById("accStartBalance").value) || 0;
     const currency = document.getElementById("accCurrency").value;
-
+    
     newAccount = {
       id: "acc_" + Date.now(),
       name: nameInput,
@@ -224,7 +216,7 @@ window.createAccount = async function () {
       bankAccountId: null,
     };
   }
-
+  
   await saveAccount(newAccount);
   window.closeModal("accountModal");
   await refreshAppData();
@@ -900,6 +892,7 @@ async function refreshAppData() {
                 <span class="account-sub">${acc.type === "bank" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
                     <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить</button>
+                    <button class="btn-secondary btn-sm" style="background: #d9534f; color: white; border: none;" onclick="deleteAccount('${acc.id}')">Удалить</button>
                     ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Sync</button>` : ""}
                 </div>
             </div>
@@ -1490,5 +1483,31 @@ window.processPushNotification = async function(rawText, postTime = Date.now()) 
                 refreshAppData();
             }
         };
+    };
+};
+window.deleteAccount = async function(accountId) {
+    if (!confirm("Удалить этот счет? История операций по нему также будет удалена.")) return;
+
+    const tx = db.transaction(["accounts", "transactions"], "readwrite");
+    
+    // Удаляем сам счет
+    tx.objectStore("accounts").delete(accountId);
+    
+    // Опционально: можно удалить связанные транзакции, чтобы не висели "сироты"
+    const txStore = tx.objectStore("transactions");
+    const request = txStore.openCursor();
+    request.onsuccess = function(e) {
+        const cursor = e.target.result;
+        if (cursor) {
+            if (cursor.value.accountId === accountId) {
+                cursor.delete();
+            }
+            cursor.continue();
+        }
+    };
+
+    tx.oncomplete = () => {
+        console.log("✅ Счет успешно удален");
+        refreshAppData();
     };
 };
