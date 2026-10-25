@@ -1,5 +1,11 @@
 let db;
 let exchangeRates = { USD: 41.5, EUR: 45.0 };
+
+// Твой Client ID от Google Cloud
+const GOOGLE_CLIENT_ID =
+  "890708614909-kbcj733qlet8g8kapjq0kiikvmi8rpda.apps.googleusercontent.com";
+let googleTokenClient;
+let currentGoogleToken = localStorage.getItem("google_access_token");
 // Палитра для диаграммы (до 20 цветов)
 const CHART_COLORS = [
   "#f44336",
@@ -1067,3 +1073,199 @@ async function restoreDatabase(data) {
     tx.onerror = () => reject(tx.error);
   });
 }
+// ==========================================
+// ИНТЕГРАЦИЯ GOOGLE DRIVE (APPDATA)
+// ==========================================
+
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    if (window.google) {
+      googleTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: "https://www.googleapis.com/auth/drive.appdata",
+        callback: async (response) => {
+          if (response.error) {
+            console.error("Ошибка авторизации:", response);
+            return;
+          }
+          currentGoogleToken = response.access_token;
+          localStorage.setItem("google_access_token", currentGoogleToken);
+          updateGoogleUI(true);
+          await checkAndSyncCloudOnLogin();
+        },
+      });
+
+      if (currentGoogleToken) {
+        updateGoogleUI(true);
+        checkAndSyncCloudOnLogin();
+      }
+    }
+  }, 1000);
+});
+
+window.connectGoogleAccount = function () {
+  if (googleTokenClient) {
+    googleTokenClient.requestAccessToken({ prompt: "consent" });
+  } else {
+    alert("Библиотека Google еще не загружена. Проверьте интернет-соединение.");
+  }
+};
+
+function updateGoogleUI(isConnected) {
+  const status = document.getElementById("googleStatus");
+  const btnConnect = document.getElementById("btnGoogleConnect");
+  const syncBlocks = document.getElementById("googleSyncBlocks");
+
+  if (status && isConnected) {
+    status.innerText = "✅ Google Drive подключен";
+    status.style.color = "#4caf50";
+    if (btnConnect) {
+      btnConnect.innerText = "Обновить авторизацию";
+      btnConnect.style.background = "#333";
+    }
+    if (syncBlocks) syncBlocks.style.display = "flex";
+  } else if (status) {
+    status.innerText = "Аккаунт не подключен";
+    if (syncBlocks) syncBlocks.style.display = "none";
+  }
+}
+
+async function findCloudBackupFile() {
+  const response = await fetch(
+    'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name="zenlocal_sync.json"',
+    {
+      headers: { Authorization: `Bearer ${currentGoogleToken}` },
+    },
+  );
+  if (!response.ok) {
+    if (response.status === 401) localStorage.removeItem("google_access_token");
+    throw new Error("Ошибка поиска файла в Drive");
+  }
+  const data = await response.json();
+  return data.files.length > 0 ? data.files[0].id : null;
+}
+
+async function checkAndSyncCloudOnLogin() {
+  try {
+    const fileId = await findCloudBackupFile();
+    const localTransactions = await getAllTransactions();
+
+    if (fileId && localTransactions.length === 0) {
+      console.log("Свежая установка! Восстанавливаем из облака...");
+      await forceRestoreFromCloud(fileId);
+    } else if (localTransactions.length > 0) {
+      await forceBackupToCloud();
+    }
+  } catch (e) {
+    console.error("Авто-синхронизация прервана:", e);
+  }
+}
+
+window.forceBackupToCloud = async function () {
+  if (!currentGoogleToken) return;
+
+  const statusEl = document.getElementById("googleStatus");
+  if (statusEl) statusEl.innerText = "☁️ Выгрузка в облако...";
+
+  const accounts = await getAllAccounts();
+  const categories = await getAllCategories();
+  const transactions = await getAllTransactions();
+  const backup = {
+    accounts,
+    categories,
+    transactions,
+    date: new Date().toISOString(),
+  };
+  const fileContent = JSON.stringify(backup);
+  const fileBlob = new Blob([fileContent], { type: "application/json" });
+
+  try {
+    const existingFileId = await findCloudBackupFile();
+    const metadata = { name: "zenlocal_sync.json", parents: ["appDataFolder"] };
+
+    const form = new FormData();
+    form.append(
+      "metadata",
+      new Blob([JSON.stringify(metadata)], { type: "application/json" }),
+    );
+    form.append("file", fileBlob);
+
+    let url =
+      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+    let method = "POST";
+
+    if (existingFileId) {
+      url = `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart`;
+      method = "PATCH";
+    }
+
+    const res = await fetch(url, {
+      method: method,
+      headers: { Authorization: `Bearer ${currentGoogleToken}` },
+      body: form,
+    });
+
+    if (!res.ok) throw new Error("Ошибка при загрузке");
+    if (statusEl)
+      statusEl.innerText =
+        "✅ Сохранено в облаке: " + new Date().toLocaleTimeString();
+  } catch (e) {
+    console.error(e);
+    if (statusEl) statusEl.innerText = "❌ Ошибка выгрузки в облако";
+  }
+};
+
+window.forceRestoreFromCloud = async function (knownFileId = null) {
+  if (!currentGoogleToken) return alert("Сначала подключите Google аккаунт");
+
+  if (
+    !knownFileId &&
+    !confirm(
+      "ВНИМАНИЕ! Текущие локальные данные будут стерты и заменены данными из Google Drive. Продолжить?",
+    )
+  )
+    return;
+
+  const statusEl = document.getElementById("googleStatus");
+  if (statusEl) statusEl.innerText = "📥 Скачивание из облака...";
+
+  try {
+    const fileId = knownFileId || (await findCloudBackupFile());
+    if (!fileId) {
+      alert("В облаке пока нет резервной копии.");
+      if (statusEl) statusEl.innerText = "✅ Google Drive подключен";
+      return;
+    }
+
+    const res = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+      {
+        headers: { Authorization: `Bearer ${currentGoogleToken}` },
+      },
+    );
+
+    if (!res.ok) throw new Error("Ошибка скачивания");
+    const data = await res.json();
+
+    const tx = db.transaction(
+      ["accounts", "categories", "transactions"],
+      "readwrite",
+    );
+    tx.objectStore("accounts").clear();
+    tx.objectStore("categories").clear();
+    tx.objectStore("transactions").clear();
+
+    data.accounts.forEach((acc) => tx.objectStore("accounts").put(acc));
+    data.categories.forEach((cat) => tx.objectStore("categories").put(cat));
+    data.transactions.forEach((t) => tx.objectStore("transactions").put(t));
+
+    tx.oncomplete = async () => {
+      if (statusEl) statusEl.innerText = "✅ Данные восстановлены из облака";
+      await refreshAppData();
+      alert("Данные успешно подтянуты из облака!");
+    };
+  } catch (e) {
+    console.error(e);
+    if (statusEl) statusEl.innerText = "❌ Ошибка загрузки из облака";
+  }
+};
