@@ -15,11 +15,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     addManualBtn.addEventListener("click", async () => {
       const accountId = document.getElementById("opAccountSelect").value;
       const categoryId = document.getElementById("opCategorySelect").value;
-      const rawAmount = parseFloat(
-        document.getElementById("manualAmount").value,
-      );
-      const desc =
-        document.getElementById("manualDesc").value.trim() || "Без описания";
+      const rawAmount = parseFloat(document.getElementById("manualAmount").value);
+      const desc = document.getElementById("manualDesc").value.trim() || "Без описания";
       const type = document.getElementById("manualType").value;
 
       if (!accountId || isNaN(rawAmount) || rawAmount === 0) return;
@@ -47,12 +44,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА ---
 window.switchTab = function (tabName, btn) {
-  document
-    .querySelectorAll(".tab-content")
-    .forEach((el) => el.classList.remove("active"));
-  document
-    .querySelectorAll(".nav-item")
-    .forEach((el) => el.classList.remove("active"));
+  document.querySelectorAll(".tab-content").forEach((el) => el.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach((el) => el.classList.remove("active"));
   document.getElementById("tab-" + tabName).classList.add("active");
   btn.classList.add("active");
 };
@@ -101,8 +94,7 @@ window.loadMonoAccountsList = async function () {
     select.innerHTML = "";
     if (data.accounts && data.accounts.length > 0) {
       data.accounts.forEach((acc) => {
-        const currencySymbol =
-          acc.currencyCode === 840 ? "$" : acc.currencyCode === 978 ? "€" : "₴";
+        const currencySymbol = acc.currencyCode === 840 ? "$" : acc.currencyCode === 978 ? "€" : "₴";
         const balance = (acc.balance / 100).toFixed(2);
 
         let typeName = acc.type || "Карта";
@@ -126,8 +118,7 @@ window.loadMonoAccountsList = async function () {
     }
   } catch (e) {
     console.error(e);
-    select.innerHTML =
-      '<option value="">Ошибка загрузки (проверьте токен)</option>';
+    select.innerHTML = '<option value="">Ошибка загрузки (проверьте токен)</option>';
   }
 };
 
@@ -163,8 +154,7 @@ window.createAccount = async function () {
       bankAccountId: cardInfo.id,
     };
   } else {
-    const startBalance =
-      parseFloat(document.getElementById("accStartBalance").value) || 0;
+    const startBalance = parseFloat(document.getElementById("accStartBalance").value) || 0;
     const currency = document.getElementById("accCurrency").value;
 
     if (!nameInput) {
@@ -206,17 +196,14 @@ window.createCategory = async function () {
   await refreshAppData();
 };
 
-// Открыть модалку для создания новой категории
 window.openCreateCategoryModal = function () {
   document.getElementById("editCategoryId").value = "";
   document.getElementById("categoryNameInput").value = "";
-  document.getElementById("categoryModalTitle").innerText =
-    "Добавить категорию";
+  document.getElementById("categoryModalTitle").innerText = "Добавить категорию";
   document.getElementById("saveCategoryBtn").innerText = "Создать";
   window.openModal("categoryModal");
 };
 
-// Открыть модалку для редактирования категории
 window.openEditCategoryModal = async function (categoryId) {
   const categories = await getAllCategories();
   const category = categories.find((c) => c.id === categoryId);
@@ -224,18 +211,14 @@ window.openEditCategoryModal = async function (categoryId) {
 
   document.getElementById("editCategoryId").value = categoryId;
   document.getElementById("categoryNameInput").value = category.name;
-  document.getElementById("categoryModalTitle").innerText =
-    "Редактировать категорию";
+  document.getElementById("categoryModalTitle").innerText = "Редактировать категорию";
   document.getElementById("saveCategoryBtn").innerText = "Сохранить";
   window.openModal("categoryModal");
 };
 
-// Сохранить категорию (новую или отредактированную)
 window.saveNewCategory = async function () {
   const categoryId = document.getElementById("editCategoryId").value;
-  const categoryName = document
-    .getElementById("categoryNameInput")
-    .value.trim();
+  const categoryName = document.getElementById("categoryNameInput").value.trim();
 
   if (!categoryName) {
     alert("Введите название категории");
@@ -261,7 +244,6 @@ window.saveNewCategory = async function () {
   await refreshAppData();
 };
 
-// Удалить категорию
 window.deleteCategory = async function (categoryId) {
   if (categoryId === "cat_default") {
     alert("Нельзя удалить категорию 'Без категории'");
@@ -269,9 +251,7 @@ window.deleteCategory = async function (categoryId) {
   }
 
   const transactions = await getAllTransactions();
-  const usageCount = transactions.filter(
-    (t) => t.categoryId === categoryId,
-  ).length;
+  const usageCount = transactions.filter((t) => t.categoryId === categoryId).length;
 
   let confirmMsg = "Вы уверены, что хотите удалить эту категорию?";
   if (usageCount > 0) {
@@ -295,9 +275,7 @@ window.deleteCategory = async function (categoryId) {
     tx.onerror = () => reject(tx.error);
   })
     .then(() => refreshAppData())
-    .catch((err) => {
-      console.error("Ошибка удаления:", err);
-    });
+    .catch((err) => console.error("Ошибка удаления:", err));
 };
 
 // Открытие редактора транзакции
@@ -376,17 +354,13 @@ window.deleteTransaction = async function () {
 // Корректировка баланса
 window.openAdjustModal = function (accountId, currentBalance) {
   document.getElementById("adjustAccId").value = accountId;
-  document.getElementById("adjustRealAmount").value = (
-    currentBalance / 100
-  ).toFixed(2);
+  document.getElementById("adjustRealAmount").value = (currentBalance / 100).toFixed(2);
   window.openModal("adjustModal");
 };
 
 window.saveBalanceAdjustment = async function () {
   const accountId = document.getElementById("adjustAccId").value;
-  const realAmountVal = parseFloat(
-    document.getElementById("adjustRealAmount").value,
-  );
+  const realAmountVal = parseFloat(document.getElementById("adjustRealAmount").value);
   if (isNaN(realAmountVal)) return;
 
   const accounts = await getAllAccounts();
@@ -419,10 +393,17 @@ window.saveBalanceAdjustment = async function () {
   await refreshAppData();
 };
 
-// Синхронизация Монобанка с проверкой баланса и лимита
-window.syncMonoAccount = async function (accountId, token) {
+// Функция для установки статуса сразу на обе вкладки
+function setSyncStatusMsg(text, isHtml = false) {
   const statusEl = document.getElementById("status");
-  if (statusEl) statusEl.innerText = "Синхронизация Монобанка...";
+  const homeStatusEl = document.getElementById("homeStatus");
+  if (statusEl) { isHtml ? statusEl.innerHTML = text : statusEl.innerText = text; }
+  if (homeStatusEl) { isHtml ? homeStatusEl.innerHTML = text : homeStatusEl.innerText = text; }
+}
+
+// Синхронизация Монобанка
+window.syncMonoAccount = async function (accountId, token) {
+  setSyncStatusMsg("Синхронизация Монобанка...");
 
   try {
     const headers = { "X-Token": token };
@@ -432,10 +413,7 @@ window.syncMonoAccount = async function (accountId, token) {
 
     const to = Math.floor(Date.now() / 1000);
     const from = to - 30 * 24 * 60 * 60;
-    const stmtResponse = await fetch(
-      `https://api.monobank.ua/personal/statement/0/${from}/${to}`,
-      { headers },
-    );
+    const stmtResponse = await fetch(`https://api.monobank.ua/personal/statement/0/${from}/${to}`, { headers });
 
     if (!stmtResponse.ok) throw new Error("Ошибка API выписки Mono");
     const data = await stmtResponse.json();
@@ -460,28 +438,22 @@ window.syncMonoAccount = async function (accountId, token) {
       await saveTransaction(txData);
     }
 
-    // Проверка клиентского баланса через client-info
-    const clientResponse = await fetch(
-      "https://api.monobank.ua/personal/client-info",
-      { headers },
-    );
+    const clientResponse = await fetch("https://api.monobank.ua/personal/client-info", { headers });
     if (clientResponse.ok) {
       const clientData = await clientResponse.json();
       if (clientData.accounts && clientData.accounts.length > 0) {
         const bankAccount = bankAccId
-          ? clientData.accounts.find((a) => a.id === bankAccId) ||
-            clientData.accounts[0]
+          ? clientData.accounts.find((a) => a.id === bankAccId) || clientData.accounts[0]
           : clientData.accounts[0];
 
         const realBalanceInKopecks = bankAccount.balance;
-        const realCreditLimit = bankAccount.creditLimit || 0; // Получаем кредитный лимит
+        const realCreditLimit = bankAccount.creditLimit || 0;
         const updatedTransactions = await getAllTransactions();
 
         if (targetAcc) {
-          // Если лимит изменился — обновляем в БД
           if (targetAcc.creditLimit !== realCreditLimit) {
-            targetAcc.creditLimit = realCreditLimit;
-            await saveAccount(targetAcc);
+             targetAcc.creditLimit = realCreditLimit;
+             await saveAccount(targetAcc);
           }
 
           let internalBalance = targetAcc.startBalance;
@@ -492,10 +464,8 @@ window.syncMonoAccount = async function (accountId, token) {
           const diff = realBalanceInKopecks - internalBalance;
           if (diff !== 0) {
             const diffUah = (diff / 100).toFixed(2);
-            if (statusEl) {
-              statusEl.innerHTML = `⚠️ Внимание! Баланс расходится на <span style="color:#ff5722;">${diffUah} ₴</span>. 
-                            <button class="btn-sm" style="background:#ff5722; margin-top:5px;" onclick="openAdjustModal('${accountId}', ${internalBalance + diff})">Сверить автоматически</button>`;
-            }
+            setSyncStatusMsg(`⚠️ Внимание! Баланс расходится на <span style="color:#ff5722;">${diffUah} ₴</span>. 
+            <button class="btn-sm" style="background:#ff5722; margin-top:5px;" onclick="openAdjustModal('${accountId}', ${internalBalance + diff})">Сверить автоматически</button>`, true);
             await refreshAppData();
             return;
           }
@@ -503,14 +473,71 @@ window.syncMonoAccount = async function (accountId, token) {
       }
     }
 
-    if (statusEl)
-      statusEl.innerText = `Синхронизация успешна! Балансы сходятся.`;
+    setSyncStatusMsg(`Синхронизация успешна! Балансы сходятся.`);
     await refreshAppData();
   } catch (error) {
     console.error(error);
-    if (statusEl) statusEl.innerText = "Ошибка подключения к Monobank.";
+    setSyncStatusMsg("Ошибка подключения к Monobank.");
   }
 };
+
+// --- ФУНКЦИЯ ДЛЯ ГРУППИРОВКИ И ОТРИСОВКИ ОПЕРАЦИЙ ---
+function renderTransactionsGrouped(transactionsToRender, containerElement, accounts, categories) {
+  if (!containerElement) return;
+  containerElement.innerHTML = "";
+
+  if (transactionsToRender.length === 0) {
+    containerElement.innerHTML = '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
+    return;
+  }
+
+  // Группировка по дате (в формате "25 октября 2026 г.")
+  const grouped = {};
+  transactionsToRender.forEach((tx) => {
+    const dateObj = new Date(tx.date * 1000);
+    const dateStr = dateObj.toLocaleDateString("ru-RU", { day: 'numeric', month: 'long', year: 'numeric' });
+    if (!grouped[dateStr]) grouped[dateStr] = [];
+    grouped[dateStr].push(tx);
+  });
+
+  for (const [dateStr, txs] of Object.entries(grouped)) {
+    // Создаем заголовок с датой
+    const header = document.createElement("div");
+    header.style = "font-size: 13px; color: #888; margin: 15px 0 8px 5px; font-weight: bold; text-transform: uppercase;";
+    header.innerText = dateStr;
+    containerElement.appendChild(header);
+
+    // Отрисовываем операции за этот день
+    txs.forEach((tx) => {
+      const acc = accounts.find((a) => a.id === tx.accountId);
+      const cat = categories.find((c) => c.id === tx.categoryId);
+      const accName = acc ? acc.name : "Удаленный счет";
+      const catName = cat ? cat.name : "Без категории";
+      const symbol = acc ? (acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴") : "₴";
+
+      const card = document.createElement("div");
+      card.className = "tx-card";
+      card.onclick = () => openEditTransaction(tx.id);
+
+      const amount = tx.amount / 100;
+      const amountStr = amount > 0 ? `+${amount} ${symbol}` : `${amount} ${symbol}`;
+      const colorClass = amount > 0 ? "green" : "white";
+
+      // Внутри карточки выводим только время
+      const dateObj = new Date(tx.date * 1000);
+      const timeStr = dateObj.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+      card.innerHTML = `
+          <div class="tx-info">
+              <span class="tx-desc">${tx.description}</span>
+              <span class="tx-date">${catName} • ${accName} • ${timeStr}</span>
+          </div>
+          <div class="tx-amount ${colorClass}">${amountStr}</div>
+      `;
+      containerElement.appendChild(card);
+    });
+  }
+}
 
 // --- БАЗА ДАННЫХ (Версия 3) ---
 function initDB() {
@@ -520,10 +547,8 @@ function initDB() {
     request.onsuccess = (e) => resolve(e.target.result);
     request.onupgradeneeded = (e) => {
       const db = e.target.result;
-      if (!db.objectStoreNames.contains("accounts"))
-        db.createObjectStore("accounts", { keyPath: "id" });
-      if (!db.objectStoreNames.contains("transactions"))
-        db.createObjectStore("transactions", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("accounts")) db.createObjectStore("accounts", { keyPath: "id" });
+      if (!db.objectStoreNames.contains("transactions")) db.createObjectStore("transactions", { keyPath: "id" });
       if (!db.objectStoreNames.contains("categories")) {
         const catStore = db.createObjectStore("categories", { keyPath: "id" });
         catStore.put({ id: "cat_default", name: "Без категории" });
@@ -531,7 +556,6 @@ function initDB() {
     };
   });
 }
-
 function saveAccount(acc) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("accounts", "readwrite");
@@ -540,7 +564,6 @@ function saveAccount(acc) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
 function saveCategory(cat) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("categories", "readwrite");
@@ -549,7 +572,6 @@ function saveCategory(cat) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
 function saveTransaction(txData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("transactions", "readwrite");
@@ -558,7 +580,6 @@ function saveTransaction(txData) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
 function removeTransaction(txId) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("transactions", "readwrite");
@@ -567,7 +588,6 @@ function removeTransaction(txId) {
     tx.onerror = () => reject(tx.error);
   });
 }
-
 async function getAllAccounts() {
   return new Promise((resolve) => {
     const tx = db.transaction("accounts", "readonly");
@@ -575,7 +595,6 @@ async function getAllAccounts() {
     req.onsuccess = () => resolve(req.result);
   });
 }
-
 async function getAllCategories() {
   return new Promise((resolve) => {
     const tx = db.transaction("categories", "readonly");
@@ -583,7 +602,6 @@ async function getAllCategories() {
     req.onsuccess = () => resolve(req.result);
   });
 }
-
 async function getAllTransactions() {
   return new Promise((resolve) => {
     const tx = db.transaction("transactions", "readonly");
@@ -598,33 +616,17 @@ async function fetchRates() {
     const res = await fetch("https://api.monobank.ua/bank/currency");
     if (!res.ok) return;
     const data = await res.json();
-    const usdRate = data.find(
-      (item) => item.currencyCodeA === 840 && item.currencyCodeB === 980,
-    );
-    const eurRate = data.find(
-      (item) => item.currencyCodeA === 978 && item.currencyCodeB === 980,
-    );
+    const usdRate = data.find((item) => item.currencyCodeA === 840 && item.currencyCodeB === 980);
+    const eurRate = data.find((item) => item.currencyCodeA === 978 && item.currencyCodeB === 980);
 
-    if (usdRate)
-      exchangeRates.USD =
-        usdRate.rateSell || usdRate.rateCross || exchangeRates.USD;
-    if (eurRate)
-      exchangeRates.EUR =
-        eurRate.rateSell || eurRate.rateCross || exchangeRates.EUR;
+    if (usdRate) exchangeRates.USD = usdRate.rateSell || usdRate.rateCross || exchangeRates.USD;
+    if (eurRate) exchangeRates.EUR = eurRate.rateSell || eurRate.rateCross || exchangeRates.EUR;
 
-    if (document.getElementById("rateUsd"))
-      document.getElementById("rateUsd").innerText =
-        `${exchangeRates.USD.toFixed(2)} ₴`;
-    if (document.getElementById("rateEur"))
-      document.getElementById("rateEur").innerText =
-        `${exchangeRates.EUR.toFixed(2)} ₴`;
+    if (document.getElementById("rateUsd")) document.getElementById("rateUsd").innerText = `${exchangeRates.USD.toFixed(2)} ₴`;
+    if (document.getElementById("rateEur")) document.getElementById("rateEur").innerText = `${exchangeRates.EUR.toFixed(2)} ₴`;
   } catch (e) {
-    if (document.getElementById("rateUsd"))
-      document.getElementById("rateUsd").innerText =
-        `${exchangeRates.USD.toFixed(2)} ₴`;
-    if (document.getElementById("rateEur"))
-      document.getElementById("rateEur").innerText =
-        `${exchangeRates.EUR.toFixed(2)} ₴`;
+    if (document.getElementById("rateUsd")) document.getElementById("rateUsd").innerText = `${exchangeRates.USD.toFixed(2)} ₴`;
+    if (document.getElementById("rateEur")) document.getElementById("rateEur").innerText = `${exchangeRates.EUR.toFixed(2)} ₴`;
   }
 }
 
@@ -634,17 +636,18 @@ async function refreshAppData() {
   const categories = await getAllCategories();
   const transactions = await getAllTransactions();
 
+  const homeAccountsList = document.getElementById("homeAccountsList");
   const accountsList = document.getElementById("accountsList");
   const opAccountSelect = document.getElementById("opAccountSelect");
   const opCategorySelect = document.getElementById("opCategorySelect");
+  
+  const homeTransactions = document.getElementById("homeTransactions");
   const txContainer = document.getElementById("transactions");
 
-  if (!accountsList || !opAccountSelect || !opCategorySelect || !txContainer)
-    return;
-
-  accountsList.innerHTML = "";
-  opAccountSelect.innerHTML = "";
-  opCategorySelect.innerHTML = "";
+  if (homeAccountsList) homeAccountsList.innerHTML = "";
+  if (accountsList) accountsList.innerHTML = "";
+  if (opAccountSelect) opAccountSelect.innerHTML = "";
+  if (opCategorySelect) opCategorySelect.innerHTML = "";
 
   let totalGlobalBalanceUAH = 0;
 
@@ -654,7 +657,6 @@ async function refreshAppData() {
       if (tx.accountId === acc.id) accBalance += tx.amount;
     });
 
-    // Расчет лимитов
     let creditLimit = acc.creditLimit || 0;
     let ownFunds = accBalance - creditLimit;
 
@@ -663,22 +665,42 @@ async function refreshAppData() {
     if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
     totalGlobalBalanceUAH += balanceInUAH;
 
-    const symbol =
-      acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
+    const symbol = acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
     const ownFundsStr = (ownFunds / 100).toFixed(2);
     const availableStr = (accBalance / 100).toFixed(2);
 
     let sumHtml = `<div class="account-sum">${ownFundsStr} ${symbol}</div>`;
     if (creditLimit > 0) {
-      sumHtml = `
-            <div class="account-sum" style="color: ${ownFunds < 0 ? "#f44336" : "white"};">${ownFundsStr} ${symbol}</div>
+        sumHtml = `
+            <div class="account-sum" style="color: ${ownFunds < 0 ? '#f44336' : 'white'};">${ownFundsStr} ${symbol}</div>
             <div style="font-size: 11px; color: #888; text-align: right; margin-top: 3px;">Доступно: ${availableStr} ${symbol}</div>
         `;
     }
 
-    const card = document.createElement("div");
-    card.className = "account-card";
-    card.innerHTML = `
+    // 1. Отрисовка карточки для "ГЛАВНОЙ" вкладки (без кнопки Сверить)
+    if (homeAccountsList) {
+        const homeCard = document.createElement("div");
+        homeCard.className = "account-card";
+        homeCard.innerHTML = `
+            <div class="account-info">
+                <span class="account-name">${acc.name}</span>
+                <span class="account-sub">${acc.type === "bank" ? "Банк: " + acc.bank : "Наличные"}</span>
+                <div class="account-actions">
+                    ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Синхронизировать</button>` : ""}
+                </div>
+            </div>
+            <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">
+                ${sumHtml}
+            </div>
+        `;
+        homeAccountsList.appendChild(homeCard);
+    }
+
+    // 2. Отрисовка карточки для вкладки "СЧЕТА" (с кнопкой Сверить)
+    if (accountsList) {
+        const adminCard = document.createElement("div");
+        adminCard.className = "account-card";
+        adminCard.innerHTML = `
             <div class="account-info">
                 <span class="account-name">${acc.name}</span>
                 <span class="account-sub">${acc.type === "bank" ? "Банк: " + acc.bank : "Наличные"}</span>
@@ -691,132 +713,71 @@ async function refreshAppData() {
                 ${sumHtml}
             </div>
         `;
-    accountsList.appendChild(card);
+        accountsList.appendChild(adminCard);
+    }
 
-    const opt = document.createElement("option");
-    opt.value = acc.id;
-    opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
-    opAccountSelect.appendChild(opt);
+    if (opAccountSelect) {
+        const opt = document.createElement("option");
+        opt.value = acc.id;
+        opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
+        opAccountSelect.appendChild(opt);
+    }
   });
 
   if (accounts.length === 0) {
-    accountsList.innerHTML =
-      '<p style="color:#888; text-align:center;">Нет счетов. Создайте первый счет.</p>';
+    if (homeAccountsList) homeAccountsList.innerHTML = '<p style="color:#888; text-align:center;">Нет счетов.</p>';
+    if (accountsList) accountsList.innerHTML = '<p style="color:#888; text-align:center;">Нет счетов. Добавьте первый счет.</p>';
   }
 
   categories.forEach((cat) => {
-    const opt = document.createElement("option");
-    opt.value = cat.id;
-    opt.innerText = cat.name;
-    opCategorySelect.appendChild(opt);
+    if (opCategorySelect) {
+        const opt = document.createElement("option");
+        opt.value = cat.id;
+        opt.innerText = cat.name;
+        opCategorySelect.appendChild(opt);
+    }
   });
 
-  document.getElementById("totalBalance").innerText =
-    (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
+  document.getElementById("totalBalance").innerText = (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
 
   const categoriesList = document.getElementById("categoriesList");
   if (categoriesList) {
     categoriesList.innerHTML = "";
     categories.forEach(function (cat) {
-      var usageCount = transactions.filter(function (t) {
-        return t.categoryId === cat.id;
-      }).length;
+      var usageCount = transactions.filter(function (t) { return t.categoryId === cat.id; }).length;
       var isDefault = cat.id === "cat_default";
-      var usageText =
-        usageCount > 0 ? usageCount + " операций" : "Не используется";
+      var usageText = usageCount > 0 ? usageCount + " операций" : "Не используется";
       var card = document.createElement("div");
       card.className = "category-card";
       var actionsHtml = "";
       if (!isDefault) {
         actionsHtml =
-          '<button class="btn-sm" onclick="openEditCategoryModal(\x27' +
-          cat.id +
-          '\x27)">\u270E Редакт.</button>' +
-          '<button class="btn-sm btn-danger" onclick="deleteCategory(\x27' +
-          cat.id +
-          '\x27)">\u2715 Удалить</button>';
+          '<button class="btn-sm" onclick="openEditCategoryModal(\x27' + cat.id + '\x27)">\u270E Редакт.</button>' +
+          '<button class="btn-sm btn-danger" onclick="deleteCategory(\x27' + cat.id + '\x27)">\u2715 Удалить</button>';
       } else {
-        actionsHtml =
-          '<span style="color:#888;font-size:12px;">Системная</span>';
+        actionsHtml = '<span style="color:#888;font-size:12px;">Системная</span>';
       }
       card.innerHTML =
-        '<div class="category-info"><span class="category-name">' +
-        cat.name +
-        '</span><span class="category-usage">' +
-        usageText +
-        '</span></div><div class="category-actions">' +
-        actionsHtml +
-        "</div>";
+        '<div class="category-info"><span class="category-name">' + cat.name + '</span><span class="category-usage">' + usageText + '</span></div><div class="category-actions">' + actionsHtml + "</div>";
       categoriesList.appendChild(card);
     });
     if (categories.length === 0) {
-      categoriesList.innerHTML =
-        '<p style="color:#888; text-align:center;">Категорий нет. Создайте первую.</p>';
+      categoriesList.innerHTML = '<p style="color:#888; text-align:center;">Категорий нет. Создайте первую.</p>';
     }
   }
 
-  txContainer.innerHTML = "";
-  if (transactions.length > 0) {
-    transactions.sort((a, b) => b.date - a.date);
-    transactions.slice(0, 100).forEach((tx) => {
-      const acc = accounts.find((a) => a.id === tx.accountId);
-      const cat = categories.find((c) => c.id === tx.categoryId);
-      const accName = acc ? acc.name : "Удаленный счет";
-      const catName = cat ? cat.name : "Без категории";
-      const symbol = acc
-        ? acc.currency === "USD"
-          ? "$"
-          : acc.currency === "EUR"
-            ? "€"
-            : "₴"
-        : "₴";
-
-      const card = document.createElement("div");
-      card.className = "tx-card";
-      card.onclick = () => openEditTransaction(tx.id);
-
-      const amount = tx.amount / 100;
-      const amountStr =
-        amount > 0 ? `+${amount} ${symbol}` : `${amount} ${symbol}`;
-      const colorClass = amount > 0 ? "green" : "white";
-
-      const dateObj = new Date(tx.date * 1000);
-      const dateStr =
-        dateObj.toLocaleDateString("ru-RU") +
-        " " +
-        dateObj.toLocaleTimeString("ru-RU", {
-          hour: "2-digit",
-          minute: "2-digit",
-        });
-
-      card.innerHTML = `
-                <div class="tx-info">
-                    <span class="tx-desc">${tx.description}</span>
-                    <span class="tx-date">${catName} • ${accName} • ${dateStr}</span>
-                </div>
-                <div class="tx-amount ${colorClass}">${amountStr}</div>
-            `;
-      txContainer.appendChild(card);
-    });
-  } else {
-    txContainer.innerHTML =
-      '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
-  }
+  // Отрисовка транзакций по датам для Главной вкладки и вкладки Операции
+  const sortedTxs = transactions.sort((a, b) => b.date - a.date).slice(0, 100);
+  renderTransactionsGrouped(sortedTxs, homeTransactions, accounts, categories);
+  renderTransactionsGrouped(sortedTxs, txContainer, accounts, categories);
 }
 
 window.exportData = async function () {
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
   const transactions = await getAllTransactions();
-  const backup = {
-    accounts,
-    categories,
-    transactions,
-    date: new Date().toISOString(),
-  };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], {
-    type: "application/json",
-  });
+  const backup = { accounts, categories, transactions, date: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;

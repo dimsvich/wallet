@@ -37,7 +37,7 @@
             background: #1e1e1e; padding: 15px; border-radius: 12px;
             margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
         }
-        .tx-card { padding: 12px 15px; cursor: pointer; }
+        .tx-card { padding: 12px 15px; cursor: pointer; margin-bottom: 8px; }
         .account-info, .tx-info { display: flex; flex-direction: column; width: 70%; }
         .account-name, .tx-desc { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .account-sub, .tx-date { font-size: 12px; color: #888; margin-top: 3px; }
@@ -64,9 +64,10 @@
             background: #181818; border-top: 1px solid #2a2a2a;
             display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
         }
-                .nav-item {
+        /* Ширина вкладок изменена на 20% (так как их 5) */
+        .nav-item {
             background: none; border: none; color: #777; font-size: 10px;
-            display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 25%; padding: 0;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 20%; padding: 0;
         }
         .nav-item.active { color: #4caf50; }
         .nav-icon { font-size: 18px; margin-bottom: 2px; }
@@ -78,7 +79,7 @@
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
         }
-                .modal-content {
+        .modal-content {
             background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-sizing: border-box;
         }
         .category-card {
@@ -103,9 +104,19 @@
         </div>
     </div>
 
-    <!-- ВКЛАДКА 1: СЧЕТА -->
-    <div id="tab-accounts" class="tab-content active container">
-        <div class="section-header">Мои счета</div>
+    <!-- ВКЛАДКА 0: ГЛАВНАЯ (Дашборд) -->
+    <div id="tab-home" class="tab-content active container">
+        <div class="section-header">Сводка по счетам</div>
+        <div id="homeStatus" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
+        <div id="homeAccountsList"></div>
+
+        <div class="section-header">Последние операции</div>
+        <div id="homeTransactions"></div>
+    </div>
+
+    <!-- ВКЛАДКА 1: СЧЕТА (Управление) -->
+    <div id="tab-accounts" class="tab-content container">
+        <div class="section-header">Управление счетами</div>
         <div id="accountsList"></div>
         <button onclick="openModal('accountModal')">+ Добавить счет</button>
     </div>
@@ -125,22 +136,19 @@
             <button id="addManualBtn">Сохранить</button>
         </div>
 
-        <div class="section-header">Категории</div>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="text" id="newCatName" placeholder="Новая категория" style="margin:0;">
-            <button class="btn-sm" onclick="createCategory()">Добавить</button>
-        </div>
-
-        <div class="section-header">История (нажми для редактирования)</div>
+        <div class="section-header">История операций</div>
         <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
         <div id="transactions"></div>
     </div>
 
-        <!-- ВКЛАДКА 3: КАТЕГОРИИ -->
+    <!-- ВКЛАДКА 3: КАТЕГОРИИ -->
     <div id="tab-categories" class="tab-content container">
         <div class="section-header">Мои категории</div>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <input type="text" id="newCatName" placeholder="Новая категория" style="margin:0;">
+            <button class="btn-sm" onclick="createCategory()">Добавить</button>
+        </div>
         <div id="categoriesList"></div>
-        <button onclick="openCreateCategoryModal()">+ Добавить категорию</button>
     </div>
 
     <!-- ВКЛАДКА 4: НАСТРОЙКИ -->
@@ -148,18 +156,16 @@
         <div class="section-header">Управление данными</div>
         <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа (JSON)</button>
     </div>
-<!-- МОДАЛКА ДОБАВЛЕНИЯ СЧЕТА -->
+
+    <!-- МОДАЛКИ (Оставил без изменений) -->
     <div id="accountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
             <input type="text" id="accName" placeholder="Название счета (напр. Моно Личная)">
-            
             <select id="accType" onchange="toggleBankSelect()">
                 <option value="cash">Наличные / Обычный</option>
                 <option value="bank">Банк (Monobank)</option>
             </select>
-
-            <!-- Поля для обычного счета -->
             <div id="cashFields">
                 <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
                 <select id="accCurrency">
@@ -168,24 +174,19 @@
                     <option value="EUR">Евро (€)</option>
                 </select>
             </div>
-
-            <!-- Поля для Монобанка -->
             <div id="bankFields" style="display: none;">
                 <input type="text" id="bankToken" placeholder="Токен Монобанка (X-Token)">
                 <button class="btn-secondary btn-sm" style="margin-bottom: 10px; width: 100%;" onclick="loadMonoAccountsList()">Получить список карт</button>
-                
                 <div id="monoCardsContainer" style="display: none; margin-bottom: 10px;">
                     <label style="font-size: 12px; color: #888;">Выберите карту из Монобанка:</label>
                     <select id="monoCardSelect"></select>
                 </div>
             </div>
-
             <button onclick="createAccount()">Создать счет</button>
             <button class="btn-secondary" onclick="closeModal('accountModal')">Отмена</button>
         </div>
     </div>
 
-    <!-- МОДАЛКА РЕДАКТИРОВАНИЯ ТРАНЗАКЦИИ -->
     <div id="editTxModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
@@ -200,7 +201,6 @@
         </div>
     </div>
 
-        <!-- МОДАЛКА КОРРЕКТИРОВКИ БАЛАНСА -->
     <div id="adjustModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Сверка баланса</div>
@@ -211,7 +211,6 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА КАТЕГОРИИ -->
     <div id="categoryModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;" id="categoryModalTitle">Добавить категорию</div>
@@ -222,9 +221,12 @@
         </div>
     </div>
 
-        <!-- НИЖНЯЯ ПАНЕЛЬ -->
+    <!-- НИЖНЯЯ ПАНЕЛЬ С НОВОЙ ВКЛАДКОЙ -->
     <nav class="nav-bar">
-        <button class="nav-item active" onclick="switchTab('accounts', this)">
+        <button class="nav-item active" onclick="switchTab('home', this)">
+            <span class="nav-icon">🏠</span> Главная
+        </button>
+        <button class="nav-item" onclick="switchTab('accounts', this)">
             <span class="nav-icon">💳</span> Счета
         </button>
         <button class="nav-item" onclick="switchTab('operations', this)">
