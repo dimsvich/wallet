@@ -1103,11 +1103,29 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 1000);
 });
 
-window.connectGoogleAccount = function () {
-  if (googleTokenClient) {
-    googleTokenClient.requestAccessToken({ prompt: "consent" });
-  } else {
-    alert("Библиотека Google еще не загружена. Проверьте интернет-соединение.");
+// Нативный вход через Google Auth плагин
+window.connectGoogleAccount = async function () {
+  try {
+    // Проверяем, подключен ли плагин Capacitor
+    if (
+      window.Capacitor &&
+      window.Capacitor.Plugins &&
+      window.Capacitor.Plugins.GoogleAuth
+    ) {
+      const googleUser = await window.Capacitor.Plugins.GoogleAuth.signIn();
+      currentGoogleToken = googleUser.authentication.accessToken;
+      localStorage.setItem("google_access_token", currentGoogleToken);
+
+      updateGoogleUI(true);
+      await checkAndSyncCloudOnLogin();
+      alert("Успешный вход в Google Аккаунт!");
+    } else {
+      // Запасной вариант для обычной веб-версии в браузере, если зашли с ПК
+      alert("Нативный Google Auth доступен только в мобильном приложении.");
+    }
+  } catch (error) {
+    console.error("Ошибка входа через Google:", error);
+    alert("Не удалось войти: " + (error.message || "отменено пользователем"));
   }
 };
 
