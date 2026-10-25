@@ -159,10 +159,14 @@ window.createAccount = async function () {
   let newAccount = {};
 
   if (type === "bank") {
+    // === ЛОГИКА MONOBANK ===
     const token = document.getElementById("bankToken").value.trim();
     const cardSelectStr = document.getElementById("monoCardSelect").value;
-    if (!token || !cardSelectStr)
+
+    if (!token || !cardSelectStr) {
       return alert("Введите токен и выберите карту");
+    }
+
     const cardInfo = JSON.parse(cardSelectStr);
     let currency = "UAH";
     if (cardInfo.currencyCode === 840) currency = "USD";
@@ -179,11 +183,35 @@ window.createAccount = async function () {
       token: token,
       bankAccountId: cardInfo.id,
     };
-  } else {
+  } else if (type === "privat") {
+    // === НОВАЯ ЛОГИКА PRIVAT24 (PUSH) ===
+    if (!nameInput) return alert("Введите название счета");
+
     const startBalance =
       parseFloat(document.getElementById("accStartBalance").value) || 0;
     const currency = document.getElementById("accCurrency").value;
+    const cardMask = document.getElementById("privatCardMask").value.trim();
+
+    newAccount = {
+      id: "acc_" + Date.now(),
+      name: nameInput,
+      startBalance: Math.round(startBalance * 100), // Перевод в копейки, как в cash
+      creditLimit: 0,
+      currency: currency,
+      type: "privat",
+      bank: "privat24",
+      token: null,
+      bankAccountId: null,
+      cardMask: cardMask, // Маска для привязки пушей
+    };
+  } else {
+    // === ЛОГИКА НАЛИЧНЫХ (CASH) ===
     if (!nameInput) return alert("Введите название счета");
+
+    const startBalance =
+      parseFloat(document.getElementById("accStartBalance").value) || 0;
+    const currency = document.getElementById("accCurrency").value;
+
     newAccount = {
       id: "acc_" + Date.now(),
       name: nameInput,
@@ -196,6 +224,7 @@ window.createAccount = async function () {
       bankAccountId: null,
     };
   }
+
   await saveAccount(newAccount);
   window.closeModal("accountModal");
   await refreshAppData();
@@ -1304,4 +1333,82 @@ window.forceRestoreFromCloud = async function (knownFileId = null) {
     console.error(e);
     if (statusEl) statusEl.innerText = "❌ Ошибка загрузки из облака";
   }
+};
+// ==========================================
+// ИНТЕГРАЦИЯ ПРИВАТ24 (РАЗБОР ПУШ-УВЕДОМЛЕНИЙ)
+// ==========================================
+
+window.processPushNotification = async function (
+  rawText,
+  postTime = Date.now(),
+) {
+  if (typeof BankNotifyParser === "undefined") {
+    console.error("Скрипт bank-notify-parser.js не подключен!");
+    return;
+  }
+
+  // 1. Парсим текст уведомления
+  const parsed = BankNotifyParser.parsePrivatNotification({
+    text: rawText,
+    postTime: postTime,
+  });
+
+  if (!parsed.ok) {
+    console.log("Пуш проигнорирован (не финансовая операция):", parsed.reason);
+    return;
+  }
+
+  // 2. Ищем счет Приват24 в базе по маске карты
+  const accounts = await getAllAccounts();
+  let targetAccount = null;
+
+  for (const acc of accounts) {
+    if (acc.type === "privat") {
+      // Если маска не задана, либо она совпадает с той, что в пуше
+      if (!acc.cardMask || acc.cardMask === parsed.cardMask) {
+        targetAccount = acc;
+        break;
+      }
+    }
+  }
+
+  if (!targetAccount) {
+    console.warn(
+      `[Приват24] Операция по карте ${parsed.cardMask}, но счет не найден в приложении.`,
+    );
+    return;
+  }
+
+  // 3. Формируем новую транзакцию
+  const newTransaction = {
+    id: Date.now().toString(),
+    accountId: targetAccount.id,
+    categoryId: null, // Оставляем пустой (или ID спец. категории), пользователь распределит позже
+    type: parsed.type,
+    amount: parsed.amount,
+    date: new Date(parsed.opTime).toISOString(),
+    comment: `Приват24: ${parsed.kind}. ${parsed.details}`.trim(),
+    commission: parsed.commission || 0,
+    rawFingerprint: parsed.fingerprint, // защита от дублей
+  };
+
+  // 4. Корректируем баланс (приоритет - остаток из пуша, если он есть)
+  if (parsed.balanceAfter !== null) {
+    targetAccount.balance = parsed.balanceAfter;
+  } else {
+    targetAccount.balance += parsed.signedAmount - newTransaction.commission;
+  }
+
+  // 5. Записываем транзакцию и обновленный счет в базу данных
+  const tx = db.transaction(["accounts", "transactions"], "readwrite");
+  tx.objectStore("accounts").put(targetAccount);
+  tx.objectStore("transactions").put(newTransaction);
+
+  tx.oncomplete = () => {
+    console.log("✅ Транзакция из Приват24 успешно сохранена:", newTransaction);
+    if (typeof refreshAppData === "function") refreshAppData();
+  };
+
+  tx.onerror = (e) =>
+    console.error("Ошибка сохранения транзакции Приват24:", e);
 };

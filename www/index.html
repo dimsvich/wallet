@@ -203,10 +203,14 @@
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
             <input type="text" id="accName" placeholder="Название счета">
+            
+            <!-- Добавлен тип privat -->
             <select id="accType" onchange="toggleBankSelect()">
                 <option value="cash">Наличные / Обычный</option>
                 <option value="bank">Банк (Monobank)</option>
+                <option value="privat">Банк (Приват24 Push)</option>
             </select>
+            
             <div id="cashFields">
                 <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
                 <select id="accCurrency">
@@ -215,6 +219,7 @@
                     <option value="EUR">Евро (€)</option>
                 </select>
             </div>
+            
             <div id="bankFields" style="display: none;">
                 <input type="text" id="bankToken" placeholder="Токен Монобанка (X-Token)">
                 <button class="btn-secondary btn-sm" style="margin-bottom: 10px; width: 100%;" onclick="loadMonoAccountsList()">Получить список карт</button>
@@ -223,6 +228,14 @@
                     <select id="monoCardSelect"></select>
                 </div>
             </div>
+
+            <!-- НОВЫЙ БЛОК ДЛЯ ПРИВАТБАНКА -->
+            <div id="privatFields" style="display: none; margin-top: 10px;">
+                <input type="text" id="privatCardMask" placeholder="Маска карты (например, 5*58)">
+                <small style="color: #888; font-size: 11px; display:block; margin-top:3px;">Оставьте пустым для приема пушей с любых карт Приват24.</small>
+            </div>
+            <!-- КОНЕЦ НОВОГО БЛОКА -->
+
             <button onclick="createAccount()">Создать счет</button>
             <button class="btn-secondary" onclick="closeModal('accountModal')">Отмена</button>
         </div>
@@ -286,6 +299,18 @@
         function toggleBankSelect() {
             const type = document.getElementById('accType').value;
             document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
+        }
+    </script>
+    <!-- Подключаем файл парсера перед app.js -->
+    <script src="js/bank-notify-parser.js"></script>
+    <script src="js/app.js"></script>
+    
+    <script>
+        // Обновленная функция переключения отображения полей
+        function toggleBankSelect() {
+            const type = document.getElementById('accType').value;
+            document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
+            document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
         }
     </script>
 </body>
