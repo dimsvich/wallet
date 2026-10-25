@@ -4,4 +4,5 @@
     <string name="title_activity_main">ZenLocal</string>
     <string name="package_name">com.zenlocal.app</string>
     <string name="custom_url_scheme">com.zenlocal.app</string>
+    <string name="server_client_id">890708614909-kbcj733qlet8g8kapjq0kiikvmi8rpda.apps.googleusercontent.com</string>
 </resources>
