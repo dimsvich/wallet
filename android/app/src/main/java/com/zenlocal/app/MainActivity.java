@@ -9,9 +9,19 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
-import com.getcapacitor.BridgeActivity;
+import android.util.Log;
 
-public class MainActivity extends BridgeActivity {
+import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.PluginHandle;
+import com.getcapacitor.Plugin;
+
+// Импорты, которые требует плагин Capgo Social Login
+import ee.forgr.capacitor.social.login.GoogleProvider;
+import ee.forgr.capacitor.social.login.SocialLoginPlugin;
+import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
+
+// Важно: добавляем implements ModifiedMainActivityForSocialLoginPlugin
+public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
     private BroadcastReceiver pushReceiver;
 
     @Override
@@ -43,6 +53,34 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    // ==========================================
+    // ЛОГИКА ДЛЯ ПЛАГИНА CAPGO SOCIAL LOGIN
+    // ==========================================
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
+            PluginHandle pluginHandle = getBridge().getPlugin("SocialLogin");
+            if (pluginHandle == null) {
+                Log.i("Google Activity Result", "SocialLogin login handle is null");
+                return;
+            }
+            Plugin plugin = pluginHandle.getInstance();
+            if (!(plugin instanceof SocialLoginPlugin)) {
+                Log.i("Google Activity Result", "SocialLogin plugin instance is not SocialLoginPlugin");
+                return;
+            }
+            ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
+        }
+    }
+
+    // Это обязательная "заглушка", которую проверяет плагин перед тем, как разрешить использовать scopes
+    @Override
+    public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
+
+    // ==========================================
+    // ПРОВЕРКА ПРАВ НА УВЕДОМЛЕНИЯ ПРИВАТБАНКА
+    // ==========================================
     @Override
     public void onResume() {
         super.onResume();
