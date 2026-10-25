@@ -64,9 +64,9 @@
             background: #181818; border-top: 1px solid #2a2a2a;
             display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
         }
-        .nav-item {
-            background: none; border: none; color: #777; font-size: 11px;
-            display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 33%; padding: 0;
+                .nav-item {
+            background: none; border: none; color: #777; font-size: 10px;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 25%; padding: 0;
         }
         .nav-item.active { color: #4caf50; }
         .nav-icon { font-size: 18px; margin-bottom: 2px; }
@@ -78,9 +78,18 @@
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
         }
-        .modal-content {
+                .modal-content {
             background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-sizing: border-box;
         }
+        .category-card {
+            background: #1e1e1e; padding: 15px; border-radius: 12px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        .category-info { display: flex; flex-direction: column; flex: 1; }
+        .category-name { font-weight: bold; font-size: 15px; }
+        .category-usage { font-size: 12px; color: #888; margin-top: 3px; }
+        .category-actions { display: flex; gap: 8px; }
+        .category-actions button { width: auto; padding: 5px 10px; font-size: 12px; margin: 0; }
     </style>
 </head>
 <body>
@@ -127,7 +136,14 @@
         <div id="transactions"></div>
     </div>
 
-    <!-- ВКЛАДКА 3: НАСТРОЙКИ -->
+        <!-- ВКЛАДКА 3: КАТЕГОРИИ -->
+    <div id="tab-categories" class="tab-content container">
+        <div class="section-header">Мои категории</div>
+        <div id="categoriesList"></div>
+        <button onclick="openCreateCategoryModal()">+ Добавить категорию</button>
+    </div>
+
+    <!-- ВКЛАДКА 4: НАСТРОЙКИ -->
     <div id="tab-settings" class="tab-content container">
         <div class="section-header">Управление данными</div>
         <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа (JSON)</button>
@@ -184,7 +200,7 @@
         </div>
     </div>
 
-    <!-- МОДАЛКА КОРРЕКТИРОВКИ БАЛАНСА -->
+        <!-- МОДАЛКА КОРРЕКТИРОВКИ БАЛАНСА -->
     <div id="adjustModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Сверка баланса</div>
@@ -195,13 +211,27 @@
         </div>
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ -->
+    <!-- МОДАЛКА КАТЕГОРИИ -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;" id="categoryModalTitle">Добавить категорию</div>
+            <input type="hidden" id="editCategoryId">
+            <input type="text" id="categoryNameInput" placeholder="Название категории">
+            <button id="saveCategoryBtn" onclick="saveNewCategory()">Сохранить</button>
+            <button class="btn-secondary" onclick="closeModal('categoryModal')">Отмена</button>
+        </div>
+    </div>
+
+        <!-- НИЖНЯЯ ПАНЕЛЬ -->
     <nav class="nav-bar">
         <button class="nav-item active" onclick="switchTab('accounts', this)">
             <span class="nav-icon">💳</span> Счета
         </button>
         <button class="nav-item" onclick="switchTab('operations', this)">
             <span class="nav-icon">📑</span> Операции
+        </button>
+        <button class="nav-item" onclick="switchTab('categories', this)">
+            <span class="nav-icon">📂</span> Категории
         </button>
         <button class="nav-item" onclick="switchTab('settings', this)">
             <span class="nav-icon">⚙️</span> Еще

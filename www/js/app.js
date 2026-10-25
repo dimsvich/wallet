@@ -203,6 +203,100 @@ window.createCategory = async function () {
   await refreshAppData();
 };
 
+// Открыть модалку для создания новой категории
+window.openCreateCategoryModal = function () {
+  document.getElementById("editCategoryId").value = "";
+  document.getElementById("categoryNameInput").value = "";
+  document.getElementById("categoryModalTitle").innerText =
+    "Добавить категорию";
+  document.getElementById("saveCategoryBtn").innerText = "Создать";
+  window.openModal("categoryModal");
+};
+
+// Открыть модалку для редактирования категории
+window.openEditCategoryModal = async function (categoryId) {
+  const categories = await getAllCategories();
+  const category = categories.find((c) => c.id === categoryId);
+  if (!category) return;
+
+  document.getElementById("editCategoryId").value = categoryId;
+  document.getElementById("categoryNameInput").value = category.name;
+  document.getElementById("categoryModalTitle").innerText =
+    "Редактировать категорию";
+  document.getElementById("saveCategoryBtn").innerText = "Сохранить";
+  window.openModal("categoryModal");
+};
+
+// Сохранить категорию (новую или отредактированную)
+window.saveNewCategory = async function () {
+  const categoryId = document.getElementById("editCategoryId").value;
+  const categoryName = document
+    .getElementById("categoryNameInput")
+    .value.trim();
+
+  if (!categoryName) {
+    alert("Введите название категории");
+    return;
+  }
+
+  if (categoryId) {
+    const categories = await getAllCategories();
+    const category = categories.find((c) => c.id === categoryId);
+    if (category) {
+      category.name = categoryName;
+      await saveCategory(category);
+    }
+  } else {
+    const newCat = {
+      id: "cat_" + Date.now(),
+      name: categoryName,
+    };
+    await saveCategory(newCat);
+  }
+
+  window.closeModal("categoryModal");
+  await refreshAppData();
+};
+
+// Удалить категорию
+window.deleteCategory = async function (categoryId) {
+  if (categoryId === "cat_default") {
+    alert("Нельзя удалить категорию 'Без категории'");
+    return;
+  }
+
+  const transactions = await getAllTransactions();
+  const usageCount = transactions.filter(
+    (t) => t.categoryId === categoryId,
+  ).length;
+
+  let confirmMsg = "Вы уверены, что хотите удалить эту категорию?";
+  if (usageCount > 0) {
+    confirmMsg += `\n\nЭта категория используется в ${usageCount} операции(ях).\nОни будут переведены в 'Без категории'.`;
+  }
+
+  if (!confirm(confirmMsg)) return;
+
+  if (usageCount > 0) {
+    const txsToUpdate = transactions.filter((t) => t.categoryId === categoryId);
+    for (const t of txsToUpdate) {
+      t.categoryId = "cat_default";
+      await saveTransaction(t);
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("categories", "readwrite");
+    tx.objectStore("categories").delete(categoryId);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  })
+    .then(() => refreshAppData())
+    .catch((err) => {
+      console.error("Ошибка удаления:", err);
+    });
+};
+
 // Открытие редактора транзакции
 window.openEditTransaction = async function (txId) {
   const transactions = await getAllTransactions();
@@ -593,6 +687,48 @@ async function refreshAppData() {
 
   document.getElementById("totalBalance").innerText =
     (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
+
+  // --- Отрисовка вкладки категорий ---
+  const categoriesList = document.getElementById("categoriesList");
+  if (categoriesList) {
+    categoriesList.innerHTML = "";
+    categories.forEach(function (cat) {
+      var usageCount = transactions.filter(function (t) {
+        return t.categoryId === cat.id;
+      }).length;
+      var isDefault = cat.id === "cat_default";
+      var usageText =
+        usageCount > 0 ? usageCount + " операций" : "Не используется";
+      var card = document.createElement("div");
+      card.className = "category-card";
+      var actionsHtml = "";
+      if (!isDefault) {
+        actionsHtml =
+          '<button class="btn-sm" onclick="openEditCategoryModal(\x27' +
+          cat.id +
+          '\x27)">\u270E Редакт.</button>' +
+          '<button class="btn-sm btn-danger" onclick="deleteCategory(\x27' +
+          cat.id +
+          '\x27)">\u2715 Удалить</button>';
+      } else {
+        actionsHtml =
+          '<span style="color:#888;font-size:12px;">Системная</span>';
+      }
+      card.innerHTML =
+        '<div class="category-info"><span class="category-name">' +
+        cat.name +
+        '</span><span class="category-usage">' +
+        usageText +
+        '</span></div><div class="category-actions">' +
+        actionsHtml +
+        "</div>";
+      categoriesList.appendChild(card);
+    });
+    if (categories.length === 0) {
+      categoriesList.innerHTML =
+        '<p style="color:#888; text-align:center;">Категорий нет. Создайте первую.</p>';
+    }
+  }
 
   txContainer.innerHTML = "";
   if (transactions.length > 0) {
