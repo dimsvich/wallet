@@ -345,25 +345,35 @@
     </div>
 
     <!-- МОДАЛКИ -->
+<!-- МОДАЛКИ -->
     <div id="accountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
+           <!-- Выбор иконки счета -->
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка счета</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="accIconPicker">
+                    <button type="button" class="icon-chip active" onclick="selectAccIcon('💳', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💳</button>
+                    <button type="button" class="icon-chip" onclick="selectAccIcon('💵', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💵</button>
+                    <button type="button" class="icon-chip" onclick="selectAccIcon('🐖', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🐖</button>
+                    <button type="button" class="icon-chip" onclick="selectAccIcon('💎', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💎</button>
+                    <button type="button" class="icon-chip" onclick="selectAccIcon('🛡️', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🛡️</button>
+                    <button type="button" class="icon-chip" onclick="selectAccIcon('💼', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💼</button>
+                </div>
+                <input type="hidden" id="accIcon" value="💳">
+            </div>
             <input type="text" id="accName" placeholder="Название счета">
             
-            <!-- Добавлен тип privat -->
-            <select id="accType" onchange="toggleBankSelect()">
-                <option value="cash">Наличные / Обычный</option>
-                <option value="bank">Банк (Monobank)</option>
-                <option value="privat">Банк (Приват24 Push)</option>
-            </select>
+            <!-- КАСТОМНЫЙ ВЫБОР ТИПА СЧЕТА -->
+            <div class="custom-select-trigger" id="triggerAccType" onclick="openCustomSelect('accType')">Наличные / Обычный</div>
+            <input type="hidden" id="accType" value="cash">
             
             <div id="cashFields">
                 <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
-                <select id="accCurrency">
-                    <option value="UAH">Гривна (₴)</option>
-                    <option value="USD">Доллар ($)</option>
-                    <option value="EUR">Евро (€)</option>
-                </select>
+                
+                <!-- КАСТОМНЫЙ ВЫБОР ВАЛЮТЫ -->
+                <div class="custom-select-trigger" id="triggerAccCurrency" onclick="openCustomSelect('accCurrency')">Гривна (₴)</div>
+                <input type="hidden" id="accCurrency" value="UAH">
             </div>
             
             <div id="bankFields" style="display: none;">
@@ -371,17 +381,18 @@
                 <button class="btn-secondary btn-sm" style="margin-bottom: 10px; width: 100%;" onclick="loadMonoAccountsList()">Получить список карт</button>
                 <div id="monoCardsContainer" style="display: none; margin-bottom: 10px;">
                     <label style="font-size: 12px; color: #888;">Выберите карту из Монобанка:</label>
-                    <select id="monoCardSelect"></select>
+                    <div class="custom-select-trigger" id="triggerMonoCard" onclick="openCustomSelect('monoCard')">Выберите карту...</div>
+                    <input type="hidden" id="monoCardSelect" value="">
                 </div>
             </div>
 
-            <!-- НОВЫЙ БЛОК ДЛЯ ПРИВАТБАНКА -->
+            <!-- БЛОК ДЛЯ ПРИВАТБАНКА -->
             <div id="privatFields" style="display: none; margin-top: 10px;">
                 <input type="text" id="privatCardMask" placeholder="Маска карты (например, 5*58)">
                 <small style="color: #888; font-size: 11px; display:block; margin-top:3px;">Оставьте пустым для приема пушей с любых карт Приват24.</small>
             </div>
-            <!-- КОНЕЦ НОВОГО БЛОКА -->
-<div style="margin: 15px 0;">
+
+            <div style="margin: 15px 0;">
                 <label style="font-size: 14px; color: #ccc; display: flex; align-items: center; gap: 8px;">
                     <input type="checkbox" id="accIsSavings" style="width: auto; margin: 0;"> 
                     Накопительный счет (не плюсовать к общему балансу)
@@ -529,12 +540,7 @@
             }
         }
 
-        let activeSelectType = null;
-        let selectDataCache = { account: [], category: [], toAccount: [], manualType: [
-            {id: 'expense', name: 'Расход'},
-            {id: 'income', name: 'Доход'},
-            {id: 'transfer', name: 'Перевод на другой счет'}
-        ]};
+    
 
         function openCustomSelect(type) {
             activeSelectType = type;
@@ -564,6 +570,29 @@
             document.getElementById('customDropdownModal').style.display = 'none';
         }
 
+        let activeSelectType = null;
+        let selectDataCache = { 
+            account: [], 
+            category: [], 
+            toAccount: [], 
+            manualType: [
+                {id: 'expense', name: 'Расход'},
+                {id: 'income', name: 'Доход'},
+                {id: 'transfer', name: 'Перевод на другой счет'}
+            ],
+            accType: [
+                {id: 'cash', name: 'Наличные / Обычный'},
+                {id: 'bank', name: 'Банк (Monobank)'},
+                {id: 'privat', name: 'Банк (Приват24 Push)'}
+            ],
+            accCurrency: [
+                {id: 'UAH', name: 'Гривна (₴)'},
+                {id: 'USD', name: 'Доллар ($)'},
+                {id: 'EUR', name: 'Евро (€)'}
+            ],
+            monoCard: []
+        };
+
         function selectCustomOption(type, id, name) {
             if (type === 'account') {
                 document.getElementById('opAccountSelect').value = id;
@@ -580,7 +609,82 @@
                 document.getElementById('manualType').value = id;
                 document.getElementById('triggerManualType').innerText = name;
                 toggleTransferFields();
+            } else if (type === 'accType') {
+                document.getElementById('accType').value = id;
+                document.getElementById('triggerAccType').innerText = name;
+                toggleBankSelect();
+            } else if (type === 'accCurrency') {
+                document.getElementById('accCurrency').value = id;
+                document.getElementById('triggerAccCurrency').innerText = name;
+            } else if (type === 'monoCard') {
+                document.getElementById('monoCardSelect').value = id;
+                document.getElementById('triggerMonoCard').innerText = name;
             }
+        }
+
+        // Обновляем функцию переключения полей банка в модалке счета
+        function toggleBankSelect() {
+            const type = document.getElementById('accType').value;
+            document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
+            document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
+            document.getElementById('cashFields').style.display = (type === 'bank') ? 'none' : 'block';
+        }
+        // Выбор иконки при создании
+        function selectAccIcon(icon, btn) {
+            document.querySelectorAll('.icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
+            btn.style.borderColor = 'var(--primary-color)';
+            document.getElementById('accIcon').value = icon;
+        }
+
+        // Выбор иконки при редактировании
+        function selectEditAccIcon(icon, btn) {
+            document.querySelectorAll('.edit-icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
+            btn.style.borderColor = 'var(--primary-color)';
+            document.getElementById('editAccIconVal').value = icon;
+        }
+
+        // Открытие модалки редактирования счета
+        async function openEditAccountModal(accountId) {
+            const accounts = await getAllAccounts();
+            const acc = accounts.find(a => a.id === accountId);
+            if (!acc) return;
+
+            document.getElementById('editAccId').value = acc.id;
+            document.getElementById('editAccName').value = acc.name;
+            const icon = acc.icon || '💳';
+            document.getElementById('editAccIconVal').value = icon;
+
+            // Подсвечиваем нужную иконку
+            document.querySelectorAll('.edit-icon-chip').forEach(el => {
+                if (el.innerText === icon) {
+                    el.style.borderColor = 'var(--primary-color)';
+                } else {
+                    el.style.borderColor = 'var(--border-color)';
+                }
+            });
+
+            openModal('editAccountModal');
+        }
+
+        // Сохранение измененного счета
+        async function saveEditedAccountName() {
+            const accountId = document.getElementById('editAccId').value;
+            const newName = document.getElementById('editAccName').value.trim();
+            const newIcon = document.getElementById('editAccIconVal').value;
+
+            if (!newName) return alert('Введите название счета');
+
+            const accounts = await getAllAccounts();
+            const acc = accounts.find(a => a.id === accountId);
+            if (!acc) return;
+
+            // Меняем только имя и иконку, оставляя всю финансовую логику и историю нетронутой!
+            acc.name = newName;
+            acc.icon = newIcon;
+
+            await saveAccount(acc);
+            closeModal('editAccountModal');
+            await refreshAppData();
         }
     </script>
     <!-- УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ КАСТОМНЫХ СПИСКОВ -->
@@ -588,6 +692,30 @@
         <div class="custom-dropdown-content" onclick="event.stopPropagation()">
             <div class="section-header" id="customDropdownTitle" style="margin-top:0;">Выберите вариант</div>
             <div id="customDropdownList"></div>
+        </div>
+    </div>
+    <div id="editAccountModal" class="modal">
+        <div class="modal-content">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
+            <input type="hidden" id="editAccId">
+            
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="editAccIconPicker">
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💳', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💳</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💵', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💵</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('🐖', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🐖</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💎', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💎</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('🛡️', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🛡️</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💼', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💼</button>
+                </div>
+                <input type="hidden" id="editAccIconVal" value="💳">
+            </div>
+
+            <input type="text" id="editAccName" placeholder="Новое название счета">
+            
+            <button onclick="saveEditedAccountName()">Сохранить</button>
+            <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
         </div>
     </div>
 </body>

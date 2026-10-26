@@ -54,37 +54,41 @@ document.addEventListener("DOMContentLoaded", async () => {
       let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
 
       if (type === "transfer") {
-          if (accountId === toAccountId) return alert("Выберите разные счета для перевода");
-          
-          // Берем конечную сумму из нового поля (пользователь мог её отредактировать!)
-          const targetRawAmount = parseFloat(document.getElementById("transferTargetAmount").value);
-          if (isNaN(targetRawAmount) || targetRawAmount === 0) return alert("Укажите сумму зачисления");
-          
-          let targetAmountInKopecks = Math.round(Math.abs(targetRawAmount) * 100);
-          
-          // 1. Списание со счета-отправителя (сумма отправителя)
-          await saveTransaction({
-              id: "tx_out_" + Date.now(),
-              accountId: accountId,
-              categoryId: "cat_default",
-              amount: -amountInKopecks,
-              description: "Перевод: " + desc,
-              date: Math.floor(Date.now() / 1000),
-              userModified: true,
-              isTransfer: true // Метка, чтобы скрывать в аналитике
-          });
-          
-          // 2. Зачисление на счет-получатель (СКОНВЕРТИРОВАННАЯ сумма!)
-          await saveTransaction({
-              id: "tx_in_" + (Date.now() + 1),
-              accountId: toAccountId,
-              categoryId: "cat_default",
-              amount: targetAmountInKopecks, 
-              description: "Перевод: " + desc,
-              date: Math.floor(Date.now() / 1000),
-              userModified: true,
-              isTransfer: true
-          });
+        if (accountId === toAccountId)
+          return alert("Выберите разные счета для перевода");
+
+        // Берем конечную сумму из нового поля (пользователь мог её отредактировать!)
+        const targetRawAmount = parseFloat(
+          document.getElementById("transferTargetAmount").value,
+        );
+        if (isNaN(targetRawAmount) || targetRawAmount === 0)
+          return alert("Укажите сумму зачисления");
+
+        let targetAmountInKopecks = Math.round(Math.abs(targetRawAmount) * 100);
+
+        // 1. Списание со счета-отправителя (сумма отправителя)
+        await saveTransaction({
+          id: "tx_out_" + Date.now(),
+          accountId: accountId,
+          categoryId: "cat_default",
+          amount: -amountInKopecks,
+          description: "Перевод: " + desc,
+          date: Math.floor(Date.now() / 1000),
+          userModified: true,
+          isTransfer: true, // Метка, чтобы скрывать в аналитике
+        });
+
+        // 2. Зачисление на счет-получатель (СКОНВЕРТИРОВАННАЯ сумма!)
+        await saveTransaction({
+          id: "tx_in_" + (Date.now() + 1),
+          accountId: toAccountId,
+          categoryId: "cat_default",
+          amount: targetAmountInKopecks,
+          description: "Перевод: " + desc,
+          date: Math.floor(Date.now() / 1000),
+          userModified: true,
+          isTransfer: true,
+        });
       } else {
         if (type === "expense") amountInKopecks = -amountInKopecks;
         const newTx = {
@@ -101,7 +105,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("manualAmount").value = "";
       document.getElementById("manualDesc").value = "";
-      if (document.getElementById("transferTargetAmount")) document.getElementById("transferTargetAmount").value = "";
+      if (document.getElementById("transferTargetAmount"))
+        document.getElementById("transferTargetAmount").value = "";
       await refreshAppData();
     });
   }
@@ -142,53 +147,56 @@ window.closeModal = function (modalId) {
   document.getElementById(modalId).style.display = "none";
 };
 // --- АВТОМАТИЧЕСКАЯ КОНВЕРТАЦИЯ ПРИ ПЕРЕВОДАХ ---
-window.updateTransferCalculation = async function() {
-    const type = document.getElementById('manualType').value;
-    if (type !== 'transfer') return;
+window.updateTransferCalculation = async function () {
+  const type = document.getElementById("manualType").value;
+  if (type !== "transfer") return;
 
-    const amount = parseFloat(document.getElementById('manualAmount').value);
-    const targetInput = document.getElementById('transferTargetAmount');
-    
-    // Если сумма не введена, очищаем и второе поле
-    if (isNaN(amount) || amount === 0) {
-         targetInput.value = "";
-         return;
-    }
+  const amount = parseFloat(document.getElementById("manualAmount").value);
+  const targetInput = document.getElementById("transferTargetAmount");
 
-    const fromAccId = document.getElementById('opAccountSelect').value;
-    const toAccId = document.getElementById('opToAccountSelect').value;
-    if (!fromAccId || !toAccId || fromAccId === toAccId) return;
+  // Если сумма не введена, очищаем и второе поле
+  if (isNaN(amount) || amount === 0) {
+    targetInput.value = "";
+    return;
+  }
 
-    const accounts = await getAllAccounts();
-    const fromAcc = accounts.find(a => a.id === fromAccId);
-    const toAcc = accounts.find(a => a.id === toAccId);
-    if (!fromAcc || !toAcc) return;
+  const fromAccId = document.getElementById("opAccountSelect").value;
+  const toAccId = document.getElementById("opToAccountSelect").value;
+  if (!fromAccId || !toAccId || fromAccId === toAccId) return;
 
-    let targetAmount = amount; // По умолчанию 1 к 1
+  const accounts = await getAllAccounts();
+  const fromAcc = accounts.find((a) => a.id === fromAccId);
+  const toAcc = accounts.find((a) => a.id === toAccId);
+  if (!fromAcc || !toAcc) return;
 
-    // Если валюты отличаются — считаем кросс-курс через гривну
-    if (fromAcc.currency !== toAcc.currency) {
-        let amountInUAH = amount;
-        if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
-        if (fromAcc.currency === "EUR") amountInUAH = amount * exchangeRates.EUR;
+  let targetAmount = amount; // По умолчанию 1 к 1
 
-        if (toAcc.currency === "USD") targetAmount = amountInUAH / exchangeRates.USD;
-        else if (toAcc.currency === "EUR") targetAmount = amountInUAH / exchangeRates.EUR;
-        else targetAmount = amountInUAH;
-    }
+  // Если валюты отличаются — считаем кросс-курс через гривну
+  if (fromAcc.currency !== toAcc.currency) {
+    let amountInUAH = amount;
+    if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
+    if (fromAcc.currency === "EUR") amountInUAH = amount * exchangeRates.EUR;
 
-    targetInput.value = targetAmount.toFixed(2);
+    if (toAcc.currency === "USD")
+      targetAmount = amountInUAH / exchangeRates.USD;
+    else if (toAcc.currency === "EUR")
+      targetAmount = amountInUAH / exchangeRates.EUR;
+    else targetAmount = amountInUAH;
+  }
+
+  targetInput.value = targetAmount.toFixed(2);
 };
 
-// Загрузка списка карт Монобанка
+// Загрузка списка карт Монобанка (для кастомного селекта)
 window.loadMonoAccountsList = async function () {
   const token = document.getElementById("bankToken").value.trim();
   if (!token) return alert("Сначала введите токен Монобанка");
 
   const container = document.getElementById("monoCardsContainer");
-  const select = document.getElementById("monoCardSelect");
-  select.innerHTML = "<option>Загрузка карт...</option>";
-  container.style.display = "block";
+  const triggerMonoCard = document.getElementById("triggerMonoCard");
+
+  if (triggerMonoCard) triggerMonoCard.innerText = "Загрузка карт...";
+  if (container) container.style.display = "block";
 
   try {
     const res = await fetch("https://api.monobank.ua/personal/client-info", {
@@ -196,7 +204,8 @@ window.loadMonoAccountsList = async function () {
     });
     if (!res.ok) throw new Error("Неверный токен");
     const data = await res.json();
-    select.innerHTML = "";
+
+    let cardItems = [];
     if (data.accounts && data.accounts.length > 0) {
       data.accounts.forEach((acc) => {
         const currencySymbol =
@@ -207,23 +216,37 @@ window.loadMonoAccountsList = async function () {
         if (typeName === "white") typeName = "Белая карта";
         if (typeName === "fop") typeName = "Счет ФОП";
 
-        const opt = document.createElement("option");
-        opt.value = JSON.stringify({
+        const valObj = JSON.stringify({
           id: acc.id,
           currencyCode: acc.currencyCode,
           balance: acc.balance,
           creditLimit: acc.creditLimit || 0,
           typeName: typeName,
         });
-        opt.innerText = `${typeName} (${balance} ${currencySymbol})`;
-        select.appendChild(opt);
+
+        cardItems.push({
+          id: valObj,
+          name: `${typeName} (${balance} ${currencySymbol})`,
+        });
       });
+
+      // Сохраняем карточки в кеш кастомного селекта
+      selectDataCache.monoCard = cardItems;
+
+      if (cardItems.length > 0) {
+        // Автоматически выбираем первую карту в списке
+        selectCustomOption("monoCard", cardItems[0].id, cardItems[0].name);
+      } else {
+        if (triggerMonoCard) triggerMonoCard.innerText = "Счетов не найдено";
+      }
     } else {
-      select.innerHTML = '<option value="">Счетов не найдено</option>';
+      if (triggerMonoCard) triggerMonoCard.innerText = "Счетов не найдено";
+      selectDataCache.monoCard = [];
     }
   } catch (e) {
-    select.innerHTML =
-      '<option value="">Ошибка загрузки (проверьте токен)</option>';
+    if (triggerMonoCard)
+      triggerMonoCard.innerText = "Ошибка загрузки (проверьте токен)";
+    selectDataCache.monoCard = [];
   }
 };
 
@@ -231,6 +254,8 @@ window.createAccount = async function () {
   const nameInput = document.getElementById("accName").value.trim();
   const type = document.getElementById("accType").value;
   const isSavings = document.getElementById("accIsSavings").checked; // <-- ДОБАВИТЬ ЭТО
+    const icon = document.getElementById("accIcon") ? document.getElementById("accIcon").value : "💳";
+
   let newAccount = {};
 
   if (type === "bank") {
@@ -255,6 +280,7 @@ window.createAccount = async function () {
       token: token,
       bankAccountId: cardInfo.id,
       isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
+      icon: icon,
     };
   } else if (type === "privat") {
     // ПриватБанк (Push)
@@ -276,6 +302,7 @@ window.createAccount = async function () {
       bankAccountId: null,
       cardMask: cardMask,
       isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
+      icon: icon,
     };
   } else {
     // Наличные
@@ -295,6 +322,7 @@ window.createAccount = async function () {
       token: null,
       bankAccountId: null,
       isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
+      icon: icon,
     };
   }
 
@@ -917,7 +945,8 @@ async function refreshAppData() {
   if (homeAccountsList) homeAccountsList.innerHTML = "";
   if (accountsList) accountsList.innerHTML = "";
   if (opAccountSelect) opAccountSelect.innerHTML = "";
-  if (document.getElementById("opToAccountSelect")) document.getElementById("opToAccountSelect").innerHTML = "";
+  if (document.getElementById("opToAccountSelect"))
+    document.getElementById("opToAccountSelect").innerHTML = "";
   if (opCategorySelect) opCategorySelect.innerHTML = "";
 
   let totalGlobalBalanceUAH = 0;
@@ -942,7 +971,6 @@ async function refreshAppData() {
     const savingsBadge = acc.isSavings
       ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>`
       : "";
-   
 
     const symbol =
       acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
@@ -975,14 +1003,18 @@ async function refreshAppData() {
     }
 
     // Для вкладки СЧЕТА (с кнопкой Сверить)
-    if (accountsList) {
+   if (accountsList) {
       const adminCard = document.createElement("div");
       adminCard.className = "account-card";
+      
+      const accIcon = acc.icon || "💳"; // Иконка по умолчанию
+
       adminCard.innerHTML = `
             <div class="account-info">
-               <span class="account-name">${acc.name} ${savingsBadge}</span>
+                <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
                 <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
+                    <button class="btn-secondary btn-sm" onclick="openEditAccountModal('${acc.id}')">✏️ Имя</button>
                     <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить</button>
                     <button class="btn-secondary btn-sm" style="background: #d9534f; color: white; border: none;" onclick="deleteAccount('${acc.id}')">Удалить</button>
                     ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Sync</button>` : ""}
@@ -1074,19 +1106,41 @@ async function refreshAppData() {
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
   // Обновляем данные для кастомных списков
-  selectDataCache.account = accounts.map(a => ({ id: a.id, name: `${a.name} (${(a.startBalance/100).toFixed(2)} ${a.currency === 'USD' ? '$' : a.currency === 'EUR' ? '€' : '₴'})` }));
-  selectDataCache.toAccount = accounts.map(a => ({ id: a.id, name: `${a.name} (${(a.startBalance/100).toFixed(2)} ${a.currency === 'USD' ? '$' : a.currency === 'EUR' ? '€' : '₴'})` }));
-  selectDataCache.category = categories.map(c => ({ id: c.id, name: c.name }));
+  selectDataCache.account = accounts.map((a) => ({
+    id: a.id,
+    name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
+  }));
+  selectDataCache.toAccount = accounts.map((a) => ({
+    id: a.id,
+    name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
+  }));
+  selectDataCache.category = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+  }));
 
   // Устанавливаем тексты по умолчанию для триггеров, если ничего не выбрано
-  if (accounts.length > 0 && !document.getElementById('opAccountSelect').value) {
-      selectCustomOption('account', accounts[0].id, selectDataCache.account[0].name);
-      selectCustomOption('toAccount', accounts[accounts.length > 1 ? 1 : 0].id, selectDataCache.toAccount[accounts.length > 1 ? 1 : 0].name);
+  if (
+    accounts.length > 0 &&
+    !document.getElementById("opAccountSelect").value
+  ) {
+    selectCustomOption(
+      "account",
+      accounts[0].id,
+      selectDataCache.account[0].name,
+    );
+    selectCustomOption(
+      "toAccount",
+      accounts[accounts.length > 1 ? 1 : 0].id,
+      selectDataCache.toAccount[accounts.length > 1 ? 1 : 0].name,
+    );
   }
-  if (categories.length > 0 && !document.getElementById('opCategorySelect').value) {
-      selectCustomOption('category', categories[0].id, categories[0].name);
+  if (
+    categories.length > 0 &&
+    !document.getElementById("opCategorySelect").value
+  ) {
+    selectCustomOption("category", categories[0].id, categories[0].name);
   }
-  
 }
 
 // --- ЭКСПОРТ (С поддержкой нативного меню Android Share) ---
@@ -1182,9 +1236,15 @@ document.addEventListener("DOMContentLoaded", () => {
       reader.readAsText(file);
     });
   }
-  document.getElementById('opAccountSelect').addEventListener('change', window.updateTransferCalculation);
-  document.getElementById('opToAccountSelect').addEventListener('change', window.updateTransferCalculation);
-  document.getElementById('manualAmount').addEventListener('input', window.updateTransferCalculation);
+  document
+    .getElementById("opAccountSelect")
+    .addEventListener("change", window.updateTransferCalculation);
+  document
+    .getElementById("opToAccountSelect")
+    .addEventListener("change", window.updateTransferCalculation);
+  document
+    .getElementById("manualAmount")
+    .addEventListener("input", window.updateTransferCalculation);
 });
 
 // Функция полной очистки и перезаписи базы при импорте
