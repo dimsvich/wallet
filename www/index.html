@@ -128,9 +128,7 @@
     </div>
 
     <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
-    <div id="tab-operations" class="tab-content container">
-        <div class="section-header">Добавить операцию</div>
-        <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
+    <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
             <select id="opAccountSelect"></select>
             <select id="opCategorySelect"></select>
             
@@ -138,6 +136,10 @@
             <select id="opToAccountSelect" style="display: none;"></select>
             
             <input type="number" id="manualAmount" placeholder="Сумма (например, 500)">
+            
+            <!-- НОВОЕ: Поле зачисления, появляется только при переводах -->
+            <input type="number" id="transferTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
+            
             <input type="text" id="manualDesc" placeholder="Описание (напр. Супермаркет)">
             <select id="manualType" onchange="toggleTransferFields()">
                 <option value="expense">Расход</option>
@@ -146,10 +148,6 @@
             </select>
             <button id="addManualBtn">Сохранить</button>
         </div>
-        <div class="section-header">История операций</div>
-        <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
-        <div id="transactions"></div>
-    </div>
 
     <!-- ВКЛАДКА 3: АНАЛИТИКА -->
     <div id="tab-analytics" class="tab-content container">
@@ -320,12 +318,20 @@
             const type = document.getElementById('manualType').value;
             const toAcc = document.getElementById('opToAccountSelect');
             const cat = document.getElementById('opCategorySelect');
+            const targetAmount = document.getElementById('transferTargetAmount');
+            const desc = document.getElementById('manualDesc');
+
             if (type === 'transfer') {
                 toAcc.style.display = 'block';
                 cat.style.display = 'none'; // При переводе категория не нужна
+                targetAmount.style.display = 'block'; // Показываем сумму зачисления
+                desc.placeholder = 'Описание перевода (необязательно)'; // Меняем нелогичный плейсхолдер
+                if (window.updateTransferCalculation) window.updateTransferCalculation(); // Запускаем пересчет
             } else {
                 toAcc.style.display = 'none';
                 cat.style.display = 'block';
+                targetAmount.style.display = 'none';
+                desc.placeholder = 'Описание (напр. Супермаркет)'; // Возвращаем обратно
             }
         }
     </script>

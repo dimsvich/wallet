@@ -54,32 +54,37 @@ document.addEventListener("DOMContentLoaded", async () => {
       let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
 
       if (type === "transfer") {
-        if (accountId === toAccountId)
-          return alert("Выберите разные счета для перевода");
-
-        // 1. Списание со счета-отправителя
-        await saveTransaction({
-          id: "tx_out_" + Date.now(),
-          accountId: accountId,
-          categoryId: "cat_default",
-          amount: -amountInKopecks,
-          description: "Перевод: " + desc,
-          date: Math.floor(Date.now() / 1000),
-          userModified: true,
-          isTransfer: true, // Метка, чтобы скрывать в аналитике
-        });
-
-        // 2. Зачисление на счет-получатель
-        await saveTransaction({
-          id: "tx_in_" + (Date.now() + 1),
-          accountId: toAccountId,
-          categoryId: "cat_default",
-          amount: amountInKopecks,
-          description: "Перевод: " + desc,
-          date: Math.floor(Date.now() / 1000),
-          userModified: true,
-          isTransfer: true,
-        });
+          if (accountId === toAccountId) return alert("Выберите разные счета для перевода");
+          
+          // Берем конечную сумму из нового поля (пользователь мог её отредактировать!)
+          const targetRawAmount = parseFloat(document.getElementById("transferTargetAmount").value);
+          if (isNaN(targetRawAmount) || targetRawAmount === 0) return alert("Укажите сумму зачисления");
+          
+          let targetAmountInKopecks = Math.round(Math.abs(targetRawAmount) * 100);
+          
+          // 1. Списание со счета-отправителя (сумма отправителя)
+          await saveTransaction({
+              id: "tx_out_" + Date.now(),
+              accountId: accountId,
+              categoryId: "cat_default",
+              amount: -amountInKopecks,
+              description: "Перевод: " + desc,
+              date: Math.floor(Date.now() / 1000),
+              userModified: true,
+              isTransfer: true // Метка, чтобы скрывать в аналитике
+          });
+          
+          // 2. Зачисление на счет-получатель (СКОНВЕРТИРОВАННАЯ сумма!)
+          await saveTransaction({
+              id: "tx_in_" + (Date.now() + 1),
+              accountId: toAccountId,
+              categoryId: "cat_default",
+              amount: targetAmountInKopecks, 
+              description: "Перевод: " + desc,
+              date: Math.floor(Date.now() / 1000),
+              userModified: true,
+              isTransfer: true
+          });
       } else {
         if (type === "expense") amountInKopecks = -amountInKopecks;
         const newTx = {
@@ -96,6 +101,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       document.getElementById("manualAmount").value = "";
       document.getElementById("manualDesc").value = "";
+      if (document.getElementById("transferTargetAmount")) document.getElementById("transferTargetAmount").value = "";
       await refreshAppData();
     });
   }
@@ -134,6 +140,44 @@ window.openModal = function (modalId) {
 };
 window.closeModal = function (modalId) {
   document.getElementById(modalId).style.display = "none";
+};
+// --- АВТОМАТИЧЕСКАЯ КОНВЕРТАЦИЯ ПРИ ПЕРЕВОДАХ ---
+window.updateTransferCalculation = async function() {
+    const type = document.getElementById('manualType').value;
+    if (type !== 'transfer') return;
+
+    const amount = parseFloat(document.getElementById('manualAmount').value);
+    const targetInput = document.getElementById('transferTargetAmount');
+    
+    // Если сумма не введена, очищаем и второе поле
+    if (isNaN(amount) || amount === 0) {
+         targetInput.value = "";
+         return;
+    }
+
+    const fromAccId = document.getElementById('opAccountSelect').value;
+    const toAccId = document.getElementById('opToAccountSelect').value;
+    if (!fromAccId || !toAccId || fromAccId === toAccId) return;
+
+    const accounts = await getAllAccounts();
+    const fromAcc = accounts.find(a => a.id === fromAccId);
+    const toAcc = accounts.find(a => a.id === toAccId);
+    if (!fromAcc || !toAcc) return;
+
+    let targetAmount = amount; // По умолчанию 1 к 1
+
+    // Если валюты отличаются — считаем кросс-курс через гривну
+    if (fromAcc.currency !== toAcc.currency) {
+        let amountInUAH = amount;
+        if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
+        if (fromAcc.currency === "EUR") amountInUAH = amount * exchangeRates.EUR;
+
+        if (toAcc.currency === "USD") targetAmount = amountInUAH / exchangeRates.USD;
+        else if (toAcc.currency === "EUR") targetAmount = amountInUAH / exchangeRates.EUR;
+        else targetAmount = amountInUAH;
+    }
+
+    targetInput.value = targetAmount.toFixed(2);
 };
 
 // Загрузка списка карт Монобанка
@@ -1125,6 +1169,9 @@ document.addEventListener("DOMContentLoaded", () => {
       reader.readAsText(file);
     });
   }
+  document.getElementById('opAccountSelect').addEventListener('change', window.updateTransferCalculation);
+  document.getElementById('opToAccountSelect').addEventListener('change', window.updateTransferCalculation);
+  document.getElementById('manualAmount').addEventListener('input', window.updateTransferCalculation);
 });
 
 // Функция полной очистки и перезаписи базы при импорте
