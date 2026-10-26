@@ -954,104 +954,170 @@ async function refreshAppData() {
   let totalGlobalBalanceUAH = 0;
 
   accounts.forEach((acc) => {
-    let accBalance = acc.startBalance;
-    transactions.forEach((tx) => {
-      if (tx.accountId === acc.id) accBalance += tx.amount;
-    });
+    // Очищаем списки перед заполнением
+    if (homeAccountsList) homeAccountsList.innerHTML = "";
+    if (accountsList) accountsList.innerHTML = "";
+    if (opAccountSelect) opAccountSelect.innerHTML = "";
+    if (document.getElementById("opToAccountSelect"))
+      document.getElementById("opToAccountSelect").innerHTML = "";
 
-    let creditLimit = acc.creditLimit || 0;
-    let ownFunds = accBalance - creditLimit;
+    // Разделяем счета на основные и накопительные
+    const mainAccounts = accounts.filter((acc) => !acc.isSavings);
+    const savingsAccounts = accounts.filter((acc) => acc.isSavings);
 
-    let balanceInUAH = ownFunds;
-    if (acc.currency === "USD") balanceInUAH = ownFunds * exchangeRates.USD;
-    if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
-    
-    // ДОБАВЛЯЕМ ПРОВЕРКУ НА НАКОПЛЕНИЕ
-    if (!acc.isSavings) {
-      totalGlobalBalanceUAH += balanceInUAH;
-    }
-    // Создаем значок "Накопление", если счет накопительный
-    const savingsBadge = acc.isSavings
-      ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>`
-      : "";
-
-    const symbol =
-      acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
-    const ownFundsStr = (ownFunds / 100).toFixed(2);
-    const availableStr = (accBalance / 100).toFixed(2);
-
-    let sumHtml = `<div class="account-sum">${ownFundsStr} ${symbol}</div>`;
-    if (creditLimit > 0) {
-      sumHtml = `
-            <div class="account-sum" style="color: ${ownFunds < 0 ? "#f44336" : "white"};">${ownFundsStr} ${symbol}</div>
-            <div style="font-size: 11px; color: #888; text-align: right; margin-top: 3px;">Доступно: ${availableStr} ${symbol}</div>
-        `;
-    }
-
-    // 1. Для ГЛАВНОЙ вкладки (с иконкой)
-    if (homeAccountsList) {
-      const homeCard = document.createElement("div");
-      homeCard.className = "account-card";
+    // Функция рендеринга карточки счета (для Главной или Счетов)
+    const renderAccountCardHTML = (acc, accBalance, isMainView) => {
+      let creditLimit = acc.creditLimit || 0;
+      let ownFunds = accBalance - creditLimit;
+      const symbol =
+        acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
+      const ownFundsStr = (ownFunds / 100).toFixed(2);
+      const availableStr = (accBalance / 100).toFixed(2);
       const accIcon = acc.icon || "💳";
-      homeCard.innerHTML = `
-            <div class="account-info">
-                <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
-                <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
-            </div>
-            <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
-        `;
-      homeAccountsList.appendChild(homeCard);
-    }
+      const savingsBadge = acc.isSavings
+        ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>`
+        : "";
 
-    // 2. Для вкладки СЧЕТА (только со свайпом, без дублирования)
-    if (accountsList) {
-      const swipeContainer = document.createElement("div");
-      swipeContainer.className = "account-swipe-container";
-      
-      const accIcon = acc.icon || "💳";
-
-      // Формируем кнопки под свайп в зависимости от типа счета
-      let hiddenActionsHtml = `
-          <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
-          <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
-      `;
-      if (acc.type === "bank" && acc.token) {
-          hiddenActionsHtml = `
-              <button class="swipe-action-btn swipe-sync" onclick="syncMonoAccount('${acc.id}', '${acc.token}')" title="Sync">🔄</button>
-              <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
-              <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+      let sumHtml = `<div class="account-sum">${ownFundsStr} ${symbol}</div>`;
+      if (creditLimit > 0) {
+        sumHtml = `
+              <div class="account-sum" style="color: ${ownFunds < 0 ? "#f44336" : "white"};">${ownFundsStr} ${symbol}</div>
+              <div style="font-size: 11px; color: #888; text-align: right; margin-top: 3px;">Доступно: ${availableStr} ${symbol}</div>
           `;
       }
 
-      swipeContainer.innerHTML = `
-            <div class="account-swipe-actions">
-                ${hiddenActionsHtml}
-            </div>
-            <div class="account-card-front" id="card_${acc.id}">
-                <div class="account-info">
-                    <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
-                    <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
-                </div>
-                <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
-            </div>
-      `;
-      accountsList.appendChild(swipeContainer);
-    }
+      if (isMainView) {
+        // Главная страница (обычная карточка)
+        return `
+              <div class="account-info">
+                  <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
+                  <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
+          `;
+      } else {
+        // Вкладка Счета (со свайпом)
+        let hiddenActionsHtml = `
+              <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+              <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+          `;
+        if (acc.type === "bank" && acc.token) {
+          hiddenActionsHtml = `
+                  <button class="swipe-action-btn swipe-sync" onclick="syncMonoAccount('${acc.id}', '${acc.token}')" title="Sync">🔄</button>
+                  <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+                  <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+              `;
+        }
+        return `
+              <div class="account-swipe-actions">${hiddenActionsHtml}</div>
+              <div class="account-card-front">
+                  <div class="account-info">
+                      <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
+                      <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
+                  </div>
+                  <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
+              </div>
+          `;
+      }
+    };
 
-    if (opAccountSelect) {
-      const opt = document.createElement("option");
-      opt.value = acc.id;
-      opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
-      opAccountSelect.appendChild(opt);
-    }
-    
-    const opToAccountSelect = document.getElementById("opToAccountSelect");
-    if (opToAccountSelect) {
-      const optTo = document.createElement("option");
-      optTo.value = acc.id;
-      optTo.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
-      opToAccountSelect.appendChild(optTo);
-    }
+    // Рендерим разделы на Главной и Счетах
+    const buildAccountListSection = (targetContainer, isMain) => {
+      if (!targetContainer) return;
+
+      // 1. Основные счета
+      if (mainAccounts.length > 0) {
+        const header = document.createElement("div");
+        header.className = "section-header";
+        header.style.marginTop = "0";
+        header.innerText = "Основные счета";
+        targetContainer.appendChild(header);
+
+        mainAccounts.forEach((acc) => {
+          let accBalance = acc.startBalance;
+          transactions.forEach((tx) => {
+            if (tx.accountId === acc.id) accBalance += tx.amount;
+          });
+
+          if (isMain) {
+            const card = document.createElement("div");
+            card.className = "account-card";
+            card.innerHTML = renderAccountCardHTML(acc, accBalance, true);
+            targetContainer.appendChild(card);
+          } else {
+            const swipeContainer = document.createElement("div");
+            swipeContainer.className = "account-swipe-container";
+            swipeContainer.innerHTML = renderAccountCardHTML(
+              acc,
+              accBalance,
+              false,
+            );
+            targetContainer.appendChild(swipeContainer);
+          }
+        });
+      }
+
+      // 2. Накопительные счета (Сейфы)
+      if (savingsAccounts.length > 0) {
+        const header = document.createElement("div");
+        header.className = "section-header";
+        header.innerText = "🐷 Накопления и сейфы";
+        targetContainer.appendChild(header);
+
+        savingsAccounts.forEach((acc) => {
+          let accBalance = acc.startBalance;
+          transactions.forEach((tx) => {
+            if (tx.accountId === acc.id) accBalance += tx.amount;
+          });
+
+          if (isMain) {
+            const card = document.createElement("div");
+            card.className = "account-card";
+            card.style.borderColor = "rgba(156, 39, 176, 0.3)"; // Легкая фиолетовая рамка для сейфов
+            card.innerHTML = renderAccountCardHTML(acc, accBalance, true);
+            targetContainer.appendChild(card);
+          } else {
+            const swipeContainer = document.createElement("div");
+            swipeContainer.className = "account-swipe-container";
+            swipeContainer.style.borderColor = "rgba(156, 39, 176, 0.3)";
+            swipeContainer.innerHTML = renderAccountCardHTML(
+              acc,
+              accBalance,
+              false,
+            );
+            targetContainer.appendChild(swipeContainer);
+          }
+        });
+      }
+    };
+
+    buildAccountListSection(homeAccountsList, true);
+    buildAccountListSection(accountsList, false);
+
+    // Заполняем селекты операций всеми счетами
+    accounts.forEach((acc) => {
+      let accBalance = acc.startBalance;
+      transactions.forEach((tx) => {
+        if (tx.accountId === acc.id) accBalance += tx.amount;
+      });
+      const symbol =
+        acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
+      const availableStr = (accBalance / 100).toFixed(2);
+
+      if (opAccountSelect) {
+        const opt = document.createElement("option");
+        opt.value = acc.id;
+        opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
+        opAccountSelect.appendChild(opt);
+      }
+      const opToAccountSelect = document.getElementById("opToAccountSelect");
+      if (opToAccountSelect) {
+        const optTo = document.createElement("option");
+        optTo.value = acc.id;
+        optTo.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
+        optToAccountSelect.appendChild(optTo);
+      }
+    });
   });
 
   if (accounts.length === 0) {
@@ -1078,43 +1144,60 @@ async function refreshAppData() {
   const categoriesList = document.getElementById("categoriesList");
   if (categoriesList) {
     categoriesList.innerHTML = "";
-    categories.forEach(function (cat) {
-      var usageCount = transactions.filter(function (t) {
-        return t.categoryId === cat.id;
-      }).length;
-      var isDefault = cat.id === "cat_default";
-      var usageText =
-        usageCount > 0 ? usageCount + " операций" : "Не используется";
-      var card = document.createElement("div");
-      card.className = "category-card";
-      var actionsHtml = "";
-      if (!isDefault) {
-        actionsHtml =
-          '<button class="btn-sm" onclick="openEditCategoryModal(\x27' +
-          cat.id +
-          '\x27)">\u270E Редакт.</button>' +
-          '<button class="btn-sm btn-danger" onclick="deleteCategory(\x27' +
-          cat.id +
-          '\x27)">\u2715 Удалить</button>';
-      } else {
-        actionsHtml =
-          '<span style="color:#888;font-size:12px;">Системная</span>';
-      }
-      card.innerHTML =
-        '<div class="category-info"><span class="category-name">' +
-        cat.name +
-        '</span><span class="category-usage">' +
-        usageText +
-        '</span></div><div class="category-actions">' +
-        actionsHtml +
-        "</div>";
-      categoriesList.appendChild(card);
-    });
-  }
 
-  const sortedTxs = transactions.sort((a, b) => b.date - a.date).slice(0, 100);
-  renderTransactionsGrouped(sortedTxs, homeTransactions, accounts, categories);
-  renderTransactionsGrouped(sortedTxs, txContainer, accounts, categories);
+    // Группируем категории по типу (можно определить по операциям или сделать разделение)
+    // По умолчанию разделим на секции
+    const incomeCategories = categories.filter(
+      (c) => c.type === "income" || c.id === "cat_default",
+    );
+    const expenseCategories = categories.filter(
+      (c) => c.type === "expense" || (!c.type && c.id !== "cat_default"),
+    );
+
+    const renderCatGroup = (title, cats) => {
+      if (cats.length === 0) return;
+      const groupHeader = document.createElement("div");
+      groupHeader.className = "section-header";
+      groupHeader.innerText = title;
+      categoriesList.appendChild(groupHeader);
+
+      cats.forEach(function (cat) {
+        var usageCount = transactions.filter(function (t) {
+          return t.categoryId === cat.id;
+        }).length;
+        var isDefault = cat.id === "cat_default";
+        var usageText =
+          usageCount > 0 ? usageCount + " операций" : "Не используется";
+        var card = document.createElement("div");
+        card.className = "category-card";
+        var actionsHtml = "";
+        if (!isDefault) {
+          actionsHtml =
+            '<button class="btn-sm" onclick="openEditCategoryModal(\x27' +
+            cat.id +
+            '\x27)">✏️</button>' +
+            '<button class="btn-sm btn-danger" onclick="deleteCategory(\x27' +
+            cat.id +
+            '\x27)">✕</button>';
+        } else {
+          actionsHtml =
+            '<span style="color:#888;font-size:12px;">Системная</span>';
+        }
+        card.innerHTML =
+          '<div class="category-info"><span class="category-name">' +
+          cat.name +
+          '</span><span class="category-usage">' +
+          usageText +
+          '</span></div><div class="category-actions">' +
+          actionsHtml +
+          "</div>";
+        categoriesList.appendChild(card);
+      });
+    };
+
+    renderCatGroup("📥 Категории доходов", incomeCategories);
+    renderCatGroup("📤 Категории расходов", expenseCategories);
+  }
 
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
@@ -1132,10 +1215,16 @@ async function refreshAppData() {
     id: c.id,
     name: c.name,
   }));
-  
+
   // Добавляем заполнение кастомных списков для модалки редактирования транзакций
-  selectDataCache.editTxAccount = accounts.map((a) => ({ id: a.id, name: a.name }));
-  selectDataCache.editTxCategory = categories.map((c) => ({ id: c.id, name: c.name }));
+  selectDataCache.editTxAccount = accounts.map((a) => ({
+    id: a.id,
+    name: a.name,
+  }));
+  selectDataCache.editTxCategory = categories.map((c) => ({
+    id: c.id,
+    name: c.name,
+  }));
 
   // Устанавливаем тексты по умолчанию для триггеров, если ничего не выбрано
   if (
