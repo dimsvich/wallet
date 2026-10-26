@@ -357,15 +357,25 @@ window.openEditAccountModal = async function (accountId) {
   document.getElementById("editAccIconVal").value = icon;
   document.getElementById("editAccIsSavings").checked = !!acc.isSavings;
 
+  // Установка типа счета в модалке редактирования
+  const accType = acc.type || "cash";
+  let typeName = "Наличные / Обычный";
+  if (accType === "bank") typeName = "Банк (Monobank)";
+  if (accType === "privat") typeName = "Банк (Приват24 Push)";
+
+  if (typeof selectCustomOption === "function") {
+    selectCustomOption("editAccType", accType, typeName);
+  }
+
   const tokenContainer = document.getElementById("editMonoTokenContainer");
   const tokenInput = document.getElementById("editAccToken");
 
-  if (acc.type === "bank") {
-    tokenContainer.style.display = "block";
-    tokenInput.value = acc.token || "";
+  if (accType === "bank") {
+    if (tokenContainer) tokenContainer.style.display = "block";
+    if (tokenInput) tokenInput.value = acc.token || "";
   } else {
-    tokenContainer.style.display = "none";
-    tokenInput.value = "";
+    if (tokenContainer) tokenContainer.style.display = "none";
+    if (tokenInput) tokenInput.value = "";
   }
 
   document.querySelectorAll(".edit-icon-chip").forEach((el) => {
@@ -384,6 +394,7 @@ window.saveEditedAccount = async function () {
   const newName = document.getElementById("editAccName").value.trim();
   const newIcon = document.getElementById("editAccIconVal").value;
   const isSavings = document.getElementById("editAccIsSavings").checked;
+  const newType = document.getElementById("editAccType").value;
   const newToken = document.getElementById("editAccToken").value.trim();
 
   if (!newName) return alert("Введите название счета");
@@ -395,8 +406,17 @@ window.saveEditedAccount = async function () {
   acc.name = newName;
   acc.icon = newIcon;
   acc.isSavings = isSavings;
-  if (acc.type === "bank") {
+  acc.type = newType;
+
+  if (newType === "bank") {
     acc.token = newToken;
+    acc.bank = "monobank";
+  } else if (newType === "privat") {
+    acc.token = null;
+    acc.bank = "privat24";
+  } else {
+    acc.token = null;
+    acc.bank = null;
   }
 
   await saveAccount(acc);

@@ -411,7 +411,7 @@
         </div>
     </div>
 
-    <!-- Модальное окно редактирования счета (обновлено для поддержки токена Монобанка) -->
+<!-- Модальное окно редактирования счета -->
     <div id="editAccountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
@@ -432,6 +432,11 @@
 
             <input type="text" id="editAccName" placeholder="Название счета">
             
+            <!-- Выбор типа счета при редактировании -->
+            <div class="custom-select-trigger" id="triggerEditAccType" onclick="openCustomSelect('editAccType')">Наличные / Обычный</div>
+            <input type="hidden" id="editAccType" value="cash">
+
+            <!-- Поле токена Монобанка (отображается только для типа bank) -->
             <div id="editMonoTokenContainer" style="display: none; margin-top: 10px;">
                 <label style="font-size: 12px; color: #888; display:block; margin-bottom:4px;">Токен Монобанка (X-Token):</label>
                 <input type="text" id="editAccToken" placeholder="Введите токен для синхронизации">
@@ -448,7 +453,6 @@
             <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
         </div>
     </div>
-
     <div id="editTxModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
@@ -732,9 +736,19 @@
                 document.getElementById('editTxToAccount').value = id;
                 document.getElementById('triggerEditTxToAccount').innerText = name;
                 if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
+            } else if (type === 'editAccType') {
+                document.getElementById('editAccType').value = id;
+                document.getElementById('triggerEditAccType').innerText = name;
+                toggleEditBankSelect();
             }
         }
-
+function toggleEditBankSelect() {
+            const type = document.getElementById('editAccType').value;
+            const tokenContainer = document.getElementById('editMonoTokenContainer');
+            if (tokenContainer) {
+                tokenContainer.style.display = (type === 'bank') ? 'block' : 'none';
+            }
+        }
         function toggleBankSelect() {
             const type = document.getElementById('accType').value;
             document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
