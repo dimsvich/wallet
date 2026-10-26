@@ -4,100 +4,159 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ZenLocal</title>
-    <style>
+  <style>
+        :root {
+            --bg-color: #0f1115;
+            --surface-color: #1a1d24;
+            --surface-card: #222632;
+            --primary-color: #6366f1;
+            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
+            --border-color: rgba(255, 255, 255, 0.08);
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: #121212;
-            color: #ffffff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
             margin: 0; padding: 0;
-            padding-bottom: 70px;
+            padding-bottom: 80px;
+            -webkit-tap-highlight-color: transparent;
         }
+
+        /* Шапка с градиентным акцентом */
         .header {
-            padding: 15px 20px;
-            background: #181818;
-            border-bottom: 1px solid #222;
+            padding: 20px;
+            background: var(--surface-color);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            backdrop-filter: blur(10px);
+            background-color: rgba(26, 29, 36, 0.85);
         }
-        .balance-title { font-size: 13px; color: #888; }
-        .balance-amount { font-size: 26px; font-weight: bold; margin-top: 3px; }
+        .balance-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+        .balance-amount { font-size: 32px; font-weight: 800; margin-top: 4px; letter-spacing: -0.5px; }
         
         .rates-container {
-            display: flex; gap: 15px; margin-top: 10px; padding-top: 10px;
-            border-top: 1px solid #252525; font-size: 12px; color: #aaa;
+            display: flex; gap: 15px; margin-top: 12px; padding-top: 12px;
+            border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);
         }
-        .rate-item { display: flex; gap: 5px; }
-        .rate-val { color: #4caf50; font-weight: bold; }
+        .rate-item { display: flex; gap: 6px; align-items: center; }
+        .rate-val { color: var(--success-color); font-weight: 700; }
 
-        .container { padding: 15px; }
+        .container { padding: 20px; }
         .section-header {
-            font-size: 14px; color: #888; margin: 20px 0 10px 5px;
-            text-transform: uppercase; letter-spacing: 0.5px;
+            font-size: 12px; color: var(--text-muted); margin: 24px 0 12px 4px;
+            text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
         }
 
-        .account-card, .tx-card {
-            background: #1e1e1e; padding: 15px; border-radius: 12px;
-            margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+        /* Карточки с современной тенью и эффектом нажатия */
+        .account-card, .tx-card, .category-card {
+            background: var(--surface-card);
+            padding: 16px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+            transition: transform 0.2s ease, background-color 0.2s ease;
         }
-        .tx-card { padding: 12px 15px; cursor: pointer; margin-bottom: 8px; }
-        .account-info, .tx-info { display: flex; flex-direction: column; width: 70%; }
-        .account-name, .tx-desc { font-weight: bold; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .account-sub, .tx-date { font-size: 12px; color: #888; margin-top: 3px; }
-        .account-sum, .tx-amount { font-weight: bold; font-size: 16px; text-align: right; white-space: nowrap; }
-        .account-actions { display: flex; gap: 8px; margin-top: 5px; }
-
-        input, select {
-            width: 100%; box-sizing: border-box; padding: 12px; margin-bottom: 10px;
-            border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: white; font-size: 15px;
+        .account-card:active, .tx-card:active {
+            transform: scale(0.98);
         }
-        button {
-            width: 100%; padding: 12px; border-radius: 8px; border: none;
-            background: #4caf50; color: white; font-size: 15px; font-weight: bold; cursor: pointer; margin-top: 5px;
-        }
-        .btn-secondary { background: #333; }
-        .btn-danger { background: #f44336; }
-        .btn-sm { padding: 5px 10px; font-size: 12px; width: auto; margin: 0; }
-
-        .green { color: #4caf50; }
-        .white { color: #ffffff; }
-
-        .nav-bar {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 60px;
-            background: #181818; border-top: 1px solid #2a2a2a;
-            display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
-        }
-        /* Вкладок стало 6, используем flex: 1 для равномерного распределения */
-        .nav-item {
-            background: none; border: none; color: #777; font-size: 10px;
-            display: flex; flex-direction: column; align-items: center; cursor: pointer; flex: 1; padding: 0;
-        }
-        .nav-item.active { color: #4caf50; }
-        .nav-icon { font-size: 18px; margin-bottom: 2px; }
-
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
+        .tx-card { cursor: pointer; }
         
+        .account-info, .tx-info { display: flex; flex-direction: column; width: 65%; }
+        .account-name, .tx-desc { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .account-sub, .tx-date { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .account-sum, .tx-amount { font-weight: 700; font-size: 16px; text-align: right; white-space: nowrap; }
+        .account-actions { display: flex; gap: 8px; margin-top: 8px; }
+
+        /* Поля ввода и кнопки в стиле iOS / Android 14 */
+        input, select {
+            width: 100%; box-sizing: border-box; padding: 14px 16px; margin-bottom: 12px;
+            border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-color); 
+            color: white; font-size: 15px; outline: none; transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            border-color: var(--primary-color);
+        }
+        
+        button {
+            width: 100%; padding: 14px; border-radius: 12px; border: none;
+            background: var(--primary-gradient); color: white; font-size: 15px; 
+            font-weight: 700; cursor: pointer; margin-top: 6px;
+            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        button:active { transform: scale(0.97); opacity: 0.9; }
+
+        .btn-secondary { background: #2a2f3d; box-shadow: none; color: var(--text-main); }
+        .btn-danger { background: var(--danger-color); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; width: auto; margin: 0; border-radius: 8px; }
+
+        .green { color: var(--success-color); }
+        .white { color: var(--text-main); }
+
+        /* Нижняя навигация с размытием (Glassmorphism) */
+        .nav-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 70px;
+            background: rgba(26, 29, 36, 0.9); backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border-color);
+            display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
+            z-index: 100; padding-bottom: env(safe-area-inset-bottom);
+        }
+        .nav-item {
+            background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 500;
+            display: flex; flex-direction: column; align-items: center; cursor: pointer; flex: 1; padding: 0;
+            transition: color 0.2s, transform 0.2s;
+            box-shadow: none; margin: 0;
+        }
+        .nav-item.active { color: var(--primary-color); transform: translateY(-2px); }
+        .nav-icon { font-size: 20px; margin-bottom: 3px; }
+
+        /* Плавное переключение вкладок с анимацией появления */
+        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
+        .tab-content.active { display: block; opacity: 1; animation: fadeIn 0.3s ease forwards; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Модальные окна с мягким бэкдропом */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 100;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            justify-content: center; align-items: center; z-index: 1000;
+            animation: fadeInModal 0.2s ease;
+        }
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
         }
         .modal-content {
-            background: #1e1e1e; padding: 20px; border-radius: 12px; width: 90%; max-width: 400px; box-sizing: border-box;
+            background: var(--surface-card); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; 
+            box-sizing: border-box; border: 1px solid var(--border-color);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
-        .category-card {
-            background: #1e1e1e; padding: 15px; border-radius: 12px; margin-bottom: 10px;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .category-info { display: flex; flex-direction: column; flex: 1; }
-        .category-name { font-weight: bold; font-size: 15px; }
-        .category-usage { font-size: 12px; color: #888; margin-top: 3px; }
-        .category-actions { display: flex; gap: 8px; }
-        .category-actions button { width: auto; padding: 5px 10px; font-size: 12px; margin: 0; }
 
-        /* Стили для легенды аналитики */
-        .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #2a2a2a; }
-        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; }
-        .legend-name { flex: 1; font-size: 14px; }
-        .legend-amount { font-weight: bold; font-size: 14px; }
-        .legend-percent { font-size: 12px; color: #888; margin-left: 10px; width: 35px; text-align: right; }
+        .category-card { margin-bottom: 10px; }
+        .category-info { display: flex; flex-direction: column; flex: 1; }
+        .category-name { font-weight: 700; font-size: 15px; }
+        .category-usage { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .category-actions { display: flex; gap: 8px; }
+
+        .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+        .legend-color { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
+        .legend-name { flex: 1; font-size: 14px; font-weight: 500; }
+        .legend-amount { font-weight: 700; font-size: 14px; }
+        .legend-percent { font-size: 12px; color: var(--text-muted); margin-left: 10px; width: 40px; text-align: right; }
     </style>
 </head>
 <body>
@@ -302,24 +361,75 @@
   <!-- Подключаем скрипты строго в правильном порядке ОДИН РАЗ -->
     <script src="js/bank-notify-parser.js"></script>
     <script src="js/app.js"></script>
-    
     <script>
+        // Список вкладок по порядку для свайпов
+        const tabsOrder = ['home', 'accounts', 'operations', 'analytics', 'categories', 'settings'];
+
         function switchTab(tabName, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            document.getElementById('tab-' + tabName).classList.add('active');
-            btn.classList.add('active');
+            
+            const targetTab = document.getElementById('tab-' + tabName);
+            if (targetTab) targetTab.classList.add('active');
+            
+            if (!btn) {
+                // Если переключение вызвано свайпом, ищем нужную кнопку в навигации
+                const navButtons = document.querySelectorAll('.nav-item');
+                const index = tabsOrder.indexOf(tabName);
+                if (navButtons[index]) navButtons[index].classList.add('active');
+            } else {
+                btn.classList.add('active');
+            }
+
             if(tabName === 'analytics') renderAnalytics();
         }
+
+        // Поддержка свайпов пальцем (Touch Gestures)
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        document.addEventListener('touchstart', e => {
+            touchStartX = e.changedTouches[0].screenX;
+        }, false);
+
+        document.addEventListener('touchend', e => {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        }, false);
+
+        function handleSwipe() {
+            const threshold = 70; // минимальная длина свайпа в пикселях
+            if (touchEndX < touchStartX - threshold) {
+                // Свайп влево -> следующая вкладка
+                changeTabRelative(1);
+            }
+            if (touchEndX > touchStartX + threshold) {
+                // Свайп вправо -> предыдущая вкладка
+                changeTabRelative(-1);
+            }
+        }
+
+        function changeTabRelative(direction) {
+            const activeTabContent = document.querySelector('.tab-content.active');
+            if (!activeTabContent) return;
+            const currentId = activeTabContent.id.replace('tab-', '');
+            let currentIndex = tabsOrder.indexOf(currentId);
+            
+            let newIndex = currentIndex + direction;
+            if (newIndex >= 0 && newIndex < tabsOrder.length) {
+                switchTab(tabsOrder[newIndex], null);
+            }
+        }
+
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
         
-        // Обновленная функция переключения отображения полей
         function toggleBankSelect() {
             const type = document.getElementById('accType').value;
             document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
             document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
         }
+        
         function toggleTransferFields() {
             const type = document.getElementById('manualType').value;
             const toAcc = document.getElementById('opToAccountSelect');
@@ -329,15 +439,15 @@
 
             if (type === 'transfer') {
                 toAcc.style.display = 'block';
-                cat.style.display = 'none'; // При переводе категория не нужна
-                targetAmount.style.display = 'block'; // Показываем сумму зачисления
-                desc.placeholder = 'Описание перевода (необязательно)'; // Меняем нелогичный плейсхолдер
-                if (window.updateTransferCalculation) window.updateTransferCalculation(); // Запускаем пересчет
+                cat.style.display = 'none';
+                targetAmount.style.display = 'block';
+                desc.placeholder = 'Описание перевода (необязательно)';
+                if (window.updateTransferCalculation) window.updateTransferCalculation();
             } else {
                 toAcc.style.display = 'none';
                 cat.style.display = 'block';
                 targetAmount.style.display = 'none';
-                desc.placeholder = 'Описание (напр. Супермаркет)'; // Возвращаем обратно
+                desc.placeholder = 'Описание (напр. Супермаркет)';
             }
         }
     </script>
