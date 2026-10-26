@@ -873,6 +873,7 @@ async function refreshAppData() {
   if (homeAccountsList) homeAccountsList.innerHTML = "";
   if (accountsList) accountsList.innerHTML = "";
   if (opAccountSelect) opAccountSelect.innerHTML = "";
+  if (document.getElementById("opToAccountSelect")) document.getElementById("opToAccountSelect").innerHTML = "";
   if (opCategorySelect) opCategorySelect.innerHTML = "";
 
   let totalGlobalBalanceUAH = 0;
@@ -897,7 +898,7 @@ async function refreshAppData() {
     const savingsBadge = acc.isSavings
       ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>`
       : "";
-    totalGlobalBalanceUAH += balanceInUAH;
+   
 
     const symbol =
       acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
@@ -1028,8 +1029,7 @@ async function refreshAppData() {
 
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
-  if (document.getElementById("opToAccountSelect"))
-    document.getElementById("opToAccountSelect").innerHTML = "";
+  
 }
 
 // --- ЭКСПОРТ (С поддержкой нативного меню Android Share) ---
@@ -1459,7 +1459,7 @@ window.processPushNotification = async function (
     accountId: targetAccount.id,
     categoryId: "cat_default",
     type: parsed.type,
-    amount: Math.round(parsed.amount * 100),
+    amount: Math.round((parsed.amount + (parsed.commission || 0)) * 100),
     date: Math.floor(parsed.opTime / 1000), // Исправлено на секунды для совместимости с твоей датой
     description: `${parsed.kind}. ${parsed.details}`.trim(),
     userModified: false,
