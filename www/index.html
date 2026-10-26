@@ -133,11 +133,16 @@
         <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
             <select id="opAccountSelect"></select>
             <select id="opCategorySelect"></select>
-            <input type="number" id="manualAmount" placeholder="Сумма (-150 или 500)">
+            
+            <!-- Поле для второго счета при переводе -->
+            <select id="opToAccountSelect" style="display: none;"></select>
+            
+            <input type="number" id="manualAmount" placeholder="Сумма (например, 500)">
             <input type="text" id="manualDesc" placeholder="Описание (напр. Супермаркет)">
-            <select id="manualType">
+            <select id="manualType" onchange="toggleTransferFields()">
                 <option value="expense">Расход</option>
                 <option value="income">Доход</option>
+                <option value="transfer">Перевод на другой счет</option>
             </select>
             <button id="addManualBtn">Сохранить</button>
         </div>
@@ -235,7 +240,12 @@
                 <small style="color: #888; font-size: 11px; display:block; margin-top:3px;">Оставьте пустым для приема пушей с любых карт Приват24.</small>
             </div>
             <!-- КОНЕЦ НОВОГО БЛОКА -->
-
+<div style="margin: 15px 0;">
+                <label style="font-size: 14px; color: #ccc; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="accIsSavings" style="width: auto; margin: 0;"> 
+                    Накопительный счет (не плюсовать к общему балансу)
+                </label>
+            </div>
             <button onclick="createAccount()">Создать счет</button>
             <button class="btn-secondary" onclick="closeModal('accountModal')">Отмена</button>
         </div>
@@ -305,6 +315,18 @@
             const type = document.getElementById('accType').value;
             document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
             document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
+        }
+        function toggleTransferFields() {
+            const type = document.getElementById('manualType').value;
+            const toAcc = document.getElementById('opToAccountSelect');
+            const cat = document.getElementById('opCategorySelect');
+            if (type === 'transfer') {
+                toAcc.style.display = 'block';
+                cat.style.display = 'none'; // При переводе категория не нужна
+            } else {
+                toAcc.style.display = 'none';
+                cat.style.display = 'block';
+            }
         }
     </script>
 </body>

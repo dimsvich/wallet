@@ -39,31 +39,60 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addManualBtn = document.getElementById("addManualBtn");
   if (addManualBtn) {
     addManualBtn.addEventListener("click", async () => {
+     const addManualBtn = document.getElementById("addManualBtn");
+  if (addManualBtn) {
+    addManualBtn.addEventListener("click", async () => {
       const accountId = document.getElementById("opAccountSelect").value;
       const categoryId = document.getElementById("opCategorySelect").value;
-      const rawAmount = parseFloat(
-        document.getElementById("manualAmount").value,
-      );
-      const desc =
-        document.getElementById("manualDesc").value.trim() || "Без описания";
+      const toAccountId = document.getElementById("opToAccountSelect").value;
+      const rawAmount = parseFloat(document.getElementById("manualAmount").value);
+      const desc = document.getElementById("manualDesc").value.trim() || "Без описания";
       const type = document.getElementById("manualType").value;
 
       if (!accountId || isNaN(rawAmount) || rawAmount === 0) return;
 
       let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
-      if (type === "expense") amountInKopecks = -amountInKopecks;
 
-      const newTx = {
-        id: "tx_" + Date.now(),
-        accountId: accountId,
-        categoryId: categoryId || "cat_default",
-        amount: amountInKopecks,
-        description: desc,
-        date: Math.floor(Date.now() / 1000),
-        userModified: true,
-      };
+      if (type === "transfer") {
+          if (accountId === toAccountId) return alert("Выберите разные счета для перевода");
+          
+          // 1. Списание со счета-отправителя
+          await saveTransaction({
+              id: "tx_out_" + Date.now(),
+              accountId: accountId,
+              categoryId: "cat_default",
+              amount: -amountInKopecks,
+              description: "Перевод: " + desc,
+              date: Math.floor(Date.now() / 1000),
+              userModified: true,
+              isTransfer: true // Метка, чтобы скрывать в аналитике
+          });
+          
+          // 2. Зачисление на счет-получатель
+          await saveTransaction({
+              id: "tx_in_" + (Date.now() + 1),
+              accountId: toAccountId,
+              categoryId: "cat_default",
+              amount: amountInKopecks,
+              description: "Перевод: " + desc,
+              date: Math.floor(Date.now() / 1000),
+              userModified: true,
+              isTransfer: true
+          });
+      } else {
+          if (type === "expense") amountInKopecks = -amountInKopecks;
+          const newTx = {
+            id: "tx_" + Date.now(),
+            accountId: accountId,
+            categoryId: categoryId || "cat_default",
+            amount: amountInKopecks,
+            description: desc,
+            date: Math.floor(Date.now() / 1000),
+            userModified: true,
+          };
+          await saveTransaction(newTx);
+      }
 
-      await saveTransaction(newTx);
       document.getElementById("manualAmount").value = "";
       document.getElementById("manualDesc").value = "";
       await refreshAppData();
@@ -156,6 +185,7 @@ window.loadMonoAccountsList = async function () {
 window.createAccount = async function () {
   const nameInput = document.getElementById("accName").value.trim();
   const type = document.getElementById("accType").value;
+  const isSavings = document.getElementById("accIsSavings").checked; // <-- ДОБАВИТЬ ЭТО
   let newAccount = {};
 
   if (type === "bank") {
@@ -179,6 +209,7 @@ window.createAccount = async function () {
       bank: "monobank",
       token: token,
       bankAccountId: cardInfo.id,
+      isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
     };
   } else if (type === "privat") {
     // ПриватБанк (Push)
@@ -199,6 +230,7 @@ window.createAccount = async function () {
       token: null,
       bankAccountId: null,
       cardMask: cardMask,
+      isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
     };
   } else {
     // Наличные
@@ -217,6 +249,7 @@ window.createAccount = async function () {
       bank: null,
       token: null,
       bankAccountId: null,
+      isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
     };
   }
 
@@ -597,7 +630,8 @@ window.renderAnalytics = async function () {
   let filteredTxs = transactions.filter((tx) => {
     // Исключаем системные корректировки из аналитики
     if (tx.description.startsWith("Коррекция баланса")) return false;
-
+// Исключаем системные корректировки и ПЕРЕВОДЫ из аналитики
+    if (tx.description.startsWith("Коррекция баланса") || tx.isTransfer) return false;
     const d = new Date(tx.date * 1000);
     const txMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (txMonth !== monthVal) return false;
@@ -853,6 +887,12 @@ async function refreshAppData() {
     let balanceInUAH = ownFunds;
     if (acc.currency === "USD") balanceInUAH = ownFunds * exchangeRates.USD;
     if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
+    // ДОБАВЛЯЕМ ПРОВЕРКУ НА НАКОПЛЕНИЕ
+    if (!acc.isSavings) {
+        totalGlobalBalanceUAH += balanceInUAH;
+    }
+    // Создаем значок "Накопление", если счет накопительный
+    const savingsBadge = acc.isSavings ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>` : '';
     totalGlobalBalanceUAH += balanceInUAH;
 
     const symbol =
@@ -874,7 +914,7 @@ async function refreshAppData() {
       homeCard.className = "account-card";
       homeCard.innerHTML = `
             <div class="account-info">
-                <span class="account-name">${acc.name}</span>
+              <span class="account-name">${acc.name} ${savingsBadge}</span>
                 <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
                     ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Синхронизировать</button>` : ""}
@@ -891,7 +931,7 @@ async function refreshAppData() {
       adminCard.className = "account-card";
       adminCard.innerHTML = `
             <div class="account-info">
-                <span class="account-name">${acc.name}</span>
+               <span class="account-name">${acc.name} ${savingsBadge}</span>
                 <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
                     <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить</button>
@@ -909,6 +949,14 @@ async function refreshAppData() {
       opt.value = acc.id;
       opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
       opAccountSelect.appendChild(opt);
+    }
+    // ДОБАВИТЬ ЭТО: Заполняем второй селект для переводов
+    const opToAccountSelect = document.getElementById("opToAccountSelect");
+    if (opToAccountSelect) {
+      const optTo = document.createElement("option");
+      optTo.value = acc.id;
+      optTo.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
+      opToAccountSelect.appendChild(optTo);
     }
   });
 
@@ -976,6 +1024,7 @@ async function refreshAppData() {
 
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
+  if (document.getElementById("opToAccountSelect")) document.getElementById("opToAccountSelect").innerHTML = "";
 }
 
 // --- ЭКСПОРТ (С поддержкой нативного меню Android Share) ---
