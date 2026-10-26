@@ -850,16 +850,45 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
       for (let t of data) {
         const txId = "mono_" + t.id;
         const existing = existingTxs.find((item) => item.id === txId);
-        if (existing && existing.userModified) continue;
+
+        if (existing) {
+          if (existing.userModified) continue;
+        } else {
+          // ИЩЕМ ДУБЛИКАТ: не от монобанка, совпадает счет, сумма, дата в пределах 3 дней
+          const duplicateIndex = existingTxs.findIndex(
+            (item) =>
+              item.accountId === accountId &&
+              !item.id.startsWith("mono_") &&
+              item.amount === t.amount &&
+              Math.abs(item.date - t.time) <= 3 * 24 * 60 * 60,
+          );
+
+          if (duplicateIndex !== -1) {
+            const dup = existingTxs[duplicateIndex];
+            await removeTransaction(dup.id); // Удаляем старую импортированную/ручную операцию
+
+            // Перезаписываем её с ID монобанка, чтобы она больше не дублировалась
+            const mergedTx = {
+              ...dup,
+              id: txId,
+              date: t.time, // Ставим точное время из банка
+            };
+            await saveTransaction(mergedTx);
+
+            // Исключаем из поиска, чтобы не сматчить с ней другие переводы (если их несколько на ту же сумму)
+            existingTxs.splice(duplicateIndex, 1);
+            continue; // Переходим к следующей операции банка
+          }
+        }
 
         await saveTransaction({
           id: txId,
           accountId: accountId,
-          categoryId: "cat_default",
+          categoryId: existing ? existing.categoryId : "cat_default",
           amount: t.amount,
-          description: t.description,
+          description: existing ? existing.description : t.description,
           date: t.time,
-          userModified: false,
+          userModified: existing ? existing.userModified : false,
         });
       }
 
