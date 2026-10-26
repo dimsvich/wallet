@@ -6,6 +6,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.text.TextUtils;
@@ -15,12 +16,10 @@ import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.PluginHandle;
 import com.getcapacitor.Plugin;
 
-// Импорты, которые требует плагин Capgo Social Login
 import ee.forgr.capacitor.social.login.GoogleProvider;
 import ee.forgr.capacitor.social.login.SocialLoginPlugin;
 import ee.forgr.capacitor.social.login.ModifiedMainActivityForSocialLoginPlugin;
 
-// Важно: добавляем implements ModifiedMainActivityForSocialLoginPlugin
 public class MainActivity extends BridgeActivity implements ModifiedMainActivityForSocialLoginPlugin {
     private BroadcastReceiver pushReceiver;
 
@@ -33,11 +32,9 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
             public void onReceive(Context context, Intent intent) {
                 String text = intent.getStringExtra("text");
                 long time = intent.getLongExtra("time", 0);
-                
                 if (text != null) {
                     String safeText = text.replace("\n", "\\n").replace("'", "\\'");
                     String jsCode = "if(window.processPushNotification) { window.processPushNotification('" + safeText + "', " + time + "); }";
-                    
                     getBridge().getWebView().post(() -> {
                         getBridge().getWebView().evaluateJavascript(jsCode, null);
                     });
@@ -52,51 +49,58 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
             registerReceiver(pushReceiver, filter);
         }
     }
-
-    // ==========================================
-    // ЛОГИКА ДЛЯ ПЛАГИНА CAPGO SOCIAL LOGIN
-    // ==========================================
+    
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode >= GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MIN && requestCode < GoogleProvider.REQUEST_AUTHORIZE_GOOGLE_MAX) {
             PluginHandle pluginHandle = getBridge().getPlugin("SocialLogin");
-            if (pluginHandle == null) {
-                Log.i("Google Activity Result", "SocialLogin login handle is null");
-                return;
-            }
+            if (pluginHandle == null) return;
             Plugin plugin = pluginHandle.getInstance();
-            if (!(plugin instanceof SocialLoginPlugin)) {
-                Log.i("Google Activity Result", "SocialLogin plugin instance is not SocialLoginPlugin");
-                return;
-            }
+            if (!(plugin instanceof SocialLoginPlugin)) return;
             ((SocialLoginPlugin) plugin).handleGoogleLoginIntent(requestCode, data);
         }
     }
-
-    // Это обязательная "заглушка", которую проверяет плагин перед тем, как разрешить использовать scopes
     @Override
     public void IHaveModifiedTheMainActivityForTheUseWithSocialLoginPlugin() {}
 
-    // ==========================================
-    // ПРОВЕРКА ПРАВ НА УВЕДОМЛЕНИЯ ПРИВАТБАНКА
-    // ==========================================
     @Override
     public void onResume() {
         super.onResume();
         checkNotificationPermission();
+        processMissedPushes();
+    }
+
+    // Читаем фоновую очередь пушей при открытии приложения
+    private void processMissedPushes() {
+        SharedPreferences prefs = getSharedPreferences("ZenPushQueue", Context.MODE_PRIVATE);
+        String queueStr = prefs.getString("queue", "[]");
+        
+        if (!queueStr.equals("[]")) {
+            // Очищаем блокнот
+            prefs.edit().putString("queue", "[]").apply();
+            
+            // Передаем данные в JS с задержкой 3 сек, чтобы WebView успел загрузиться
+            String safeQueue = queueStr.replace("'", "\\'").replace("\\", "\\\\");
+            String jsCode = "if(window.processMissedPushes) { window.processMissedPushes('" + safeQueue + "'); }";
+            
+            if (getBridge() != null && getBridge().getWebView() != null) {
+                getBridge().getWebView().postDelayed(() -> {
+                    getBridge().getWebView().evaluateJavascript(jsCode, null);
+                }, 3000); 
+            }
+        }
     }
 
     private void checkNotificationPermission() {
         if (!isNotificationServiceEnabled()) {
             new AlertDialog.Builder(this)
                 .setTitle("Автоматизация Приват24")
-                .setMessage("Чтобы приложение автоматически записывало расходы из ПриватБанка, ему нужен доступ к уведомлениям. Включите его на следующем экране.")
+                .setMessage("Включите доступ к уведомлениям для авто-синхронизации.")
                 .setPositiveButton("Включить", (dialog, id) -> {
                     startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
                 })
-                .setNegativeButton("Позже", null)
-                .show();
+                .setNegativeButton("Позже", null).show();
         }
     }
 
@@ -105,11 +109,9 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
         final String flat = Settings.Secure.getString(getContentResolver(), "enabled_notification_listeners");
         if (!TextUtils.isEmpty(flat)) {
             final String[] names = flat.split(":");
-            for (int i = 0; i < names.length; i++) {
-                final ComponentName cn = ComponentName.unflattenFromString(names[i]);
-                if (cn != null && TextUtils.equals(pkgName, cn.getPackageName())) {
-                    return true;
-                }
+            for (String name : names) {
+                final ComponentName cn = ComponentName.unflattenFromString(name);
+                if (cn != null && TextUtils.equals(pkgName, cn.getPackageName())) return true;
             }
         }
         return false;
@@ -118,8 +120,6 @@ public class MainActivity extends BridgeActivity implements ModifiedMainActivity
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (pushReceiver != null) {
-            unregisterReceiver(pushReceiver);
-        }
+        if (pushReceiver != null) unregisterReceiver(pushReceiver);
     }
 }
