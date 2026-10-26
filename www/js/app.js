@@ -348,16 +348,28 @@ window.createAccount = async function () {
 
 window.openEditAccountModal = async function (accountId) {
   const accounts = await getAllAccounts();
+  const transactions = await getAllTransactions();
   const acc = accounts.find((a) => a.id === accountId);
   if (!acc) return;
 
   document.getElementById("editAccId").value = acc.id;
   document.getElementById("editAccName").value = acc.name;
+
+  // Считаем актуальный баланс счета
+  let currentBalance = acc.startBalance;
+  transactions.forEach((tx) => {
+    if (tx.accountId === accountId) currentBalance += tx.amount;
+  });
+
+  const actualBalanceInput = document.getElementById("editAccActualBalance");
+  if (actualBalanceInput) {
+    actualBalanceInput.value = (currentBalance / 100).toFixed(2);
+  }
+
   const icon = acc.icon || "💳";
   document.getElementById("editAccIconVal").value = icon;
   document.getElementById("editAccIsSavings").checked = !!acc.isSavings;
 
-  // Установка типа счета в модалке редактирования
   const accType = acc.type || "cash";
   let typeName = "Наличные / Обычный";
   if (accType === "bank") typeName = "Банк (Monobank)";
@@ -396,12 +408,39 @@ window.saveEditedAccount = async function () {
   const isSavings = document.getElementById("editAccIsSavings").checked;
   const newType = document.getElementById("editAccType").value;
   const newToken = document.getElementById("editAccToken").value.trim();
+  const rawActualBalance = parseFloat(
+    document.getElementById("editAccActualBalance").value,
+  );
 
   if (!newName) return alert("Введите название счета");
 
   const accounts = await getAllAccounts();
+  const transactions = await getAllTransactions();
   const acc = accounts.find((a) => a.id === accountId);
   if (!acc) return;
+
+  // Считаем старый баланс до изменений
+  let currentBalance = acc.startBalance;
+  transactions.forEach((tx) => {
+    if (tx.accountId === accountId) currentBalance += tx.amount;
+  });
+
+  // Если ввели новый актуальный баланс, вычисляем разницу для коррекции
+  if (!isNaN(rawActualBalance)) {
+    const targetKopecks = Math.round(rawActualBalance * 100);
+    const diff = targetKopecks - currentBalance;
+    if (diff !== 0) {
+      await saveTransaction({
+        id: "tx_adj_" + Date.now(),
+        accountId: accountId,
+        categoryId: "cat_default",
+        amount: diff,
+        description: "Коррекция баланса при редактировании",
+        date: Math.floor(Date.now() / 1000),
+        userModified: true,
+      });
+    }
+  }
 
   acc.name = newName;
   acc.icon = newIcon;
