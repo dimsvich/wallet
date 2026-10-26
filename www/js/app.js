@@ -39,14 +39,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   const addManualBtn = document.getElementById("addManualBtn");
   if (addManualBtn) {
     addManualBtn.addEventListener("click", async () => {
-     const addManualBtn = document.getElementById("addManualBtn");
-  if (addManualBtn) {
-    addManualBtn.addEventListener("click", async () => {
       const accountId = document.getElementById("opAccountSelect").value;
       const categoryId = document.getElementById("opCategorySelect").value;
       const toAccountId = document.getElementById("opToAccountSelect").value;
-      const rawAmount = parseFloat(document.getElementById("manualAmount").value);
-      const desc = document.getElementById("manualDesc").value.trim() || "Без описания";
+      const rawAmount = parseFloat(
+        document.getElementById("manualAmount").value,
+      );
+      const desc =
+        document.getElementById("manualDesc").value.trim() || "Без описания";
       const type = document.getElementById("manualType").value;
 
       if (!accountId || isNaN(rawAmount) || rawAmount === 0) return;
@@ -54,43 +54,44 @@ document.addEventListener("DOMContentLoaded", async () => {
       let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
 
       if (type === "transfer") {
-          if (accountId === toAccountId) return alert("Выберите разные счета для перевода");
-          
-          // 1. Списание со счета-отправителя
-          await saveTransaction({
-              id: "tx_out_" + Date.now(),
-              accountId: accountId,
-              categoryId: "cat_default",
-              amount: -amountInKopecks,
-              description: "Перевод: " + desc,
-              date: Math.floor(Date.now() / 1000),
-              userModified: true,
-              isTransfer: true // Метка, чтобы скрывать в аналитике
-          });
-          
-          // 2. Зачисление на счет-получатель
-          await saveTransaction({
-              id: "tx_in_" + (Date.now() + 1),
-              accountId: toAccountId,
-              categoryId: "cat_default",
-              amount: amountInKopecks,
-              description: "Перевод: " + desc,
-              date: Math.floor(Date.now() / 1000),
-              userModified: true,
-              isTransfer: true
-          });
+        if (accountId === toAccountId)
+          return alert("Выберите разные счета для перевода");
+
+        // 1. Списание со счета-отправителя
+        await saveTransaction({
+          id: "tx_out_" + Date.now(),
+          accountId: accountId,
+          categoryId: "cat_default",
+          amount: -amountInKopecks,
+          description: "Перевод: " + desc,
+          date: Math.floor(Date.now() / 1000),
+          userModified: true,
+          isTransfer: true, // Метка, чтобы скрывать в аналитике
+        });
+
+        // 2. Зачисление на счет-получатель
+        await saveTransaction({
+          id: "tx_in_" + (Date.now() + 1),
+          accountId: toAccountId,
+          categoryId: "cat_default",
+          amount: amountInKopecks,
+          description: "Перевод: " + desc,
+          date: Math.floor(Date.now() / 1000),
+          userModified: true,
+          isTransfer: true,
+        });
       } else {
-          if (type === "expense") amountInKopecks = -amountInKopecks;
-          const newTx = {
-            id: "tx_" + Date.now(),
-            accountId: accountId,
-            categoryId: categoryId || "cat_default",
-            amount: amountInKopecks,
-            description: desc,
-            date: Math.floor(Date.now() / 1000),
-            userModified: true,
-          };
-          await saveTransaction(newTx);
+        if (type === "expense") amountInKopecks = -amountInKopecks;
+        const newTx = {
+          id: "tx_" + Date.now(),
+          accountId: accountId,
+          categoryId: categoryId || "cat_default",
+          amount: amountInKopecks,
+          description: desc,
+          date: Math.floor(Date.now() / 1000),
+          userModified: true,
+        };
+        await saveTransaction(newTx);
       }
 
       document.getElementById("manualAmount").value = "";
@@ -630,8 +631,9 @@ window.renderAnalytics = async function () {
   let filteredTxs = transactions.filter((tx) => {
     // Исключаем системные корректировки из аналитики
     if (tx.description.startsWith("Коррекция баланса")) return false;
-// Исключаем системные корректировки и ПЕРЕВОДЫ из аналитики
-    if (tx.description.startsWith("Коррекция баланса") || tx.isTransfer) return false;
+    // Исключаем системные корректировки и ПЕРЕВОДЫ из аналитики
+    if (tx.description.startsWith("Коррекция баланса") || tx.isTransfer)
+      return false;
     const d = new Date(tx.date * 1000);
     const txMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (txMonth !== monthVal) return false;
@@ -889,10 +891,12 @@ async function refreshAppData() {
     if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
     // ДОБАВЛЯЕМ ПРОВЕРКУ НА НАКОПЛЕНИЕ
     if (!acc.isSavings) {
-        totalGlobalBalanceUAH += balanceInUAH;
+      totalGlobalBalanceUAH += balanceInUAH;
     }
     // Создаем значок "Накопление", если счет накопительный
-    const savingsBadge = acc.isSavings ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>` : '';
+    const savingsBadge = acc.isSavings
+      ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>`
+      : "";
     totalGlobalBalanceUAH += balanceInUAH;
 
     const symbol =
@@ -1024,7 +1028,8 @@ async function refreshAppData() {
 
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
-  if (document.getElementById("opToAccountSelect")) document.getElementById("opToAccountSelect").innerHTML = "";
+  if (document.getElementById("opToAccountSelect"))
+    document.getElementById("opToAccountSelect").innerHTML = "";
 }
 
 // --- ЭКСПОРТ (С поддержкой нативного меню Android Share) ---
@@ -1383,80 +1388,6 @@ window.forceRestoreFromCloud = async function (knownFileId = null) {
 // ИНТЕГРАЦИЯ ПРИВАТ24 (РАЗБОР ПУШ-УВЕДОМЛЕНИЙ)
 // ==========================================
 
-window.processPushNotification = async function (
-  rawText,
-  postTime = Date.now(),
-) {
-  if (typeof BankNotifyParser === "undefined") {
-    console.error("Скрипт bank-notify-parser.js не подключен!");
-    return;
-  }
-
-  // 1. Парсим текст уведомления
-  const parsed = BankNotifyParser.parsePrivatNotification({
-    text: rawText,
-    postTime: postTime,
-  });
-
-  if (!parsed.ok) {
-    console.log("Пуш проигнорирован (не финансовая операция):", parsed.reason);
-    return;
-  }
-
-  // 2. Ищем счет Приват24 в базе по маске карты
-  const accounts = await getAllAccounts();
-  let targetAccount = null;
-
-  for (const acc of accounts) {
-    if (acc.type === "privat") {
-      // Если маска не задана, либо она совпадает с той, что в пуше
-      if (!acc.cardMask || acc.cardMask === parsed.cardMask) {
-        targetAccount = acc;
-        break;
-      }
-    }
-  }
-
-  if (!targetAccount) {
-    console.warn(
-      `[Приват24] Операция по карте ${parsed.cardMask}, но счет не найден в приложении.`,
-    );
-    return;
-  }
-
-  // 3. Формируем новую транзакцию
-  const newTransaction = {
-    id: Date.now().toString(),
-    accountId: targetAccount.id,
-    categoryId: null, // Оставляем пустой (или ID спец. категории), пользователь распределит позже
-    type: parsed.type,
-    amount: parsed.amount,
-    date: new Date(parsed.opTime).toISOString(),
-    comment: `Приват24: ${parsed.kind}. ${parsed.details}`.trim(),
-    commission: parsed.commission || 0,
-    rawFingerprint: parsed.fingerprint, // защита от дублей
-  };
-
-  // 4. Корректируем баланс (приоритет - остаток из пуша, если он есть)
-  if (parsed.balanceAfter !== null) {
-    targetAccount.balance = parsed.balanceAfter;
-  } else {
-    targetAccount.balance += parsed.signedAmount - newTransaction.commission;
-  }
-
-  // 5. Записываем транзакцию и обновленный счет в базу данных
-  const tx = db.transaction(["accounts", "transactions"], "readwrite");
-  tx.objectStore("accounts").put(targetAccount);
-  tx.objectStore("transactions").put(newTransaction);
-
-  tx.oncomplete = () => {
-    console.log("✅ Транзакция из Приват24 успешно сохранена:", newTransaction);
-    if (typeof refreshAppData === "function") refreshAppData();
-  };
-
-  tx.onerror = (e) =>
-    console.error("Ошибка сохранения транзакции Приват24:", e);
-};
 window.deleteAccount = async function (accountId) {
   if (
     !confirm("Удалить этот счет? История операций по нему также будет удалена.")
