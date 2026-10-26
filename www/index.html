@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>ZenLocal</title>
-  <style>
+    <style>
         :root {
             --bg-color: #0f1115;
             --surface-color: #1a1d24;
@@ -27,7 +27,6 @@
             -webkit-tap-highlight-color: transparent;
         }
 
-        /* Шапка с градиентным акцентом */
         .header {
             padding: 20px;
             background: var(--surface-color);
@@ -54,7 +53,6 @@
             text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
         }
 
-        /* Карточки с современной тенью и эффектом нажатия */
         .account-card, .tx-card, .category-card {
             background: var(--surface-card);
             padding: 16px;
@@ -75,9 +73,7 @@
         .account-name, .tx-desc { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .account-sub, .tx-date { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
         .account-sum, .tx-amount { font-weight: 700; font-size: 16px; text-align: right; white-space: nowrap; }
-        .account-actions { display: flex; gap: 8px; margin-top: 8px; }
 
-        /* Поля ввода и кнопки в стиле iOS / Android 14 */
         input, select {
             width: 100%; box-sizing: border-box; padding: 14px 16px; margin-bottom: 12px;
             border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-color); 
@@ -103,7 +99,6 @@
         .green { color: var(--success-color); }
         .white { color: var(--text-main); }
 
-        /* Нижняя навигация с размытием (Glassmorphism) */
         .nav-bar {
             position: fixed; bottom: 0; left: 0; width: 100%; height: 70px;
             background: rgba(26, 29, 36, 0.9); backdrop-filter: blur(20px);
@@ -120,54 +115,14 @@
         .nav-item.active { color: var(--primary-color); transform: translateY(-2px); }
         .nav-icon { font-size: 20px; margin-bottom: 3px; }
 
-        /* Плавное переключение вкладок с анимацией появления */
         .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
         .tab-content.active { display: block; opacity: 1; animation: fadeIn 0.3s ease forwards; }
-        /* Ультрасовременный стиль для всех выпадающих списков */
-       /* Ультрасовременный и гарантированный стиль для всех выпадающих списков */
-        select {
-            width: 100% !important;
-            box-sizing: border-box !important;
-            padding: 14px 16px !important;
-            margin-bottom: 12px !important;
-            border-radius: 12px !important;
-            border: 1px solid var(--border-color) !important;
-            background-color: var(--bg-color) !important;
-            color: var(--text-main) !important;
-            font-size: 15px !important;
-            outline: none !important;
-            
-            /* Жесткий сброс нативных стилей iOS и Android */
-            appearance: none !important;
-            -webkit-appearance: none !important;
-            -moz-appearance: none !important;
-            
-            /* Наша фирменная стрелочка */
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
-            background-repeat: no-repeat !important;
-            background-position: right 16px center !important;
-            background-size: 18px !important;
-            cursor: pointer !important;
-            box-shadow: none !important;
-        }
 
-        select:focus {
-            border-color: var(--primary-color) !important;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
-        }
-
-        select option {
-            background-color: var(--surface-card) !important;
-            color: var(--text-main) !important;
-            padding: 12px !important;
-        }
-        
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(6px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Модальные окна с мягким бэкдропом */
         .modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
@@ -195,7 +150,8 @@
         .legend-name { flex: 1; font-size: 14px; font-weight: 500; }
         .legend-amount { font-weight: 700; font-size: 14px; }
         .legend-percent { font-size: 12px; color: var(--text-muted); margin-left: 10px; width: 40px; text-align: right; }
-        /* Кастомный селект-бокс */
+
+        /* Кастомный триггер для выбора вариантов */
         .custom-select-trigger {
             width: 100%; box-sizing: border-box; padding: 14px 16px; margin-bottom: 12px;
             border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-color); 
@@ -208,7 +164,7 @@
             border-bottom: 2px solid var(--text-muted); transform: rotate(45deg); margin-right: 6px;
         }
 
-        /* Выпадающее модальное окно для выбора */
+        /* Кастомное модальное окно снизу (Bottom Sheet) */
         .custom-dropdown-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 2000;
@@ -229,7 +185,7 @@
         }
         .custom-dropdown-item:active { background: var(--primary-color); color: white; }
 
-        /* Контейнер карточки с обрезкой для эффекта свайпа */
+        /* Контейнер свайп-карточек счетов */
         .account-swipe-container {
             position: relative;
             margin-bottom: 12px;
@@ -238,48 +194,32 @@
             background: #151821;
             border: 1px solid var(--border-color);
         }
-
-        /* Скрытые подложка-кнопки под карточкой */
         .account-swipe-actions {
             position: absolute;
             top: 0; right: 0; bottom: 0;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding-right: 12px;
+            display: flex; align-items: center; gap: 6px; padding-right: 12px;
             z-index: 1;
         }
         .swipe-action-btn {
-            background: var(--surface-card);
-            border: none;
-            color: white;
-            font-size: 16px;
-            width: 44px; height: 44px;
-            border-radius: 12px;
+            background: var(--surface-card); border: none; color: white;
+            font-size: 16px; width: 44px; height: 44px; border-radius: 12px;
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         }
         .swipe-edit { background: #3b82f6; }
         .swipe-sync { background: #ff5722; }
         .swipe-delete { background: var(--danger-color); }
 
-        /* Сама передняя карточка счета, которая двигается */
         .account-card-front {
             position: relative;
             z-index: 2;
             background: var(--surface-card);
             padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            display: flex; justify-content: space-between; align-items: center;
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            cursor: grab;
-            margin-bottom: 0 !important;
-            border: none !important;
+            cursor: grab; margin-bottom: 0 !important; border: none !important;
         }
     </style>
-    
 </head>
 <body>
 
@@ -294,7 +234,6 @@
 
     <!-- ВКЛАДКА 0: ГЛАВНАЯ -->
     <div id="tab-home" class="tab-content active container">
-        <div class="section-header">Сводка по счетам</div>
         <div id="homeStatus" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
         <div id="homeAccountsList"></div>
         <div class="section-header">Последние операции</div>
@@ -303,35 +242,27 @@
 
     <!-- ВКЛАДКА 1: СЧЕТА -->
     <div id="tab-accounts" class="tab-content container">
-        <div class="section-header">Управление счетами</div>
         <div id="accountsList"></div>
         <button onclick="openModal('accountModal')">+ Добавить счет</button>
     </div>
 
- <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
+    <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
     <div id="tab-operations" class="tab-content container">
         <div class="section-header">Добавить операцию</div>
         <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
-            
-            <!-- СЧЕТ ОТПРАВИТЕЛЯ -->
             <div class="custom-select-trigger" id="triggerAccount" onclick="openCustomSelect('account')">Выберите счет...</div>
             <input type="hidden" id="opAccountSelect" value="">
 
-            <!-- КАТЕГОРИЯ -->
             <div class="custom-select-trigger" id="triggerCategory" onclick="openCustomSelect('category')">Выберите категорию...</div>
             <input type="hidden" id="opCategorySelect" value="">
             
-            <!-- СЧЕТ ПОЛУЧАТЕЛЯ (для переводов) -->
             <div class="custom-select-trigger" id="triggerToAccount" style="display: none;" onclick="openCustomSelect('toAccount')">Счет получателя...</div>
             <input type="hidden" id="opToAccountSelect" value="">
             
             <input type="number" id="manualAmount" placeholder="Сумма (например, 500)">
-            
             <input type="number" id="transferTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
+            <input type="text" id="manualDesc" placeholder="Описание (напр. Супермаркет)">
             
-            <input type="text" id="manualDesc" placeholder="Описание перевода (необязательно)">
-            
-            <!-- ТИП ОПЕРАЦИИ -->
             <div class="custom-select-trigger" id="triggerManualType" onclick="openCustomSelect('manualType')">Расход</div>
             <input type="hidden" id="manualType" value="expense">
 
@@ -353,7 +284,6 @@
             </select>
         </div>
         
-        <!-- Холст для отрисовки диаграммы без сторонних библиотек -->
         <div style="display: flex; justify-content: center; margin-bottom: 20px;">
             <canvas id="analyticsChart" width="240" height="240"></canvas>
         </div>
@@ -363,15 +293,20 @@
 
     <!-- ВКЛАДКА 4: КАТЕГОРИИ -->
     <div id="tab-categories" class="tab-content container">
-        <div class="section-header">Мои категории</div>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <input type="text" id="newCatName" placeholder="Новая категория" style="margin:0;">
-            <button class="btn-sm" onclick="createCategory()">Добавить</button>
+        <div class="section-header">Добавить категорию</div>
+        <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
+            <input type="text" id="newCatName" placeholder="Название категории">
+            
+            <div class="custom-select-trigger" id="triggerNewCatType" onclick="openCustomSelect('catType')">Расход</div>
+            <input type="hidden" id="newCatType" value="expense">
+
+            <button onclick="createCategory()">Создать категорию</button>
         </div>
+
         <div id="categoriesList"></div>
     </div>
 
-<!-- ВКЛАДКА 5: НАСТРОЙКИ -->
+    <!-- ВКЛАДКА 5: НАСТРОЙКИ -->
     <div id="tab-settings" class="tab-content container">
         <div class="section-header">Синхронизация Google Drive</div>
         
@@ -392,14 +327,15 @@
         
         <div class="section-header" style="margin-top: 20px;">Резервная копия (Файл)</div>
         <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа в файл</button>
+        <input type="file" id="importFile" accept=".json" style="display: none;">
+        <button class="btn-secondary" style="margin-top: 8px;" onclick="document.getElementById('importFile').click()">Импорт бэкапа из файла</button>
     </div>
 
-    <!-- МОДАЛКИ -->
-<!-- МОДАЛКИ -->
+    <!-- МОДАЛЬНЫЕ ОКНА -->
     <div id="accountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
-           <!-- Выбор иконки счета -->
+            
             <div style="margin-bottom: 12px;">
                 <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка счета</label>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="accIconPicker">
@@ -412,16 +348,15 @@
                 </div>
                 <input type="hidden" id="accIcon" value="💳">
             </div>
+
             <input type="text" id="accName" placeholder="Название счета">
             
-            <!-- КАСТОМНЫЙ ВЫБОР ТИПА СЧЕТА -->
             <div class="custom-select-trigger" id="triggerAccType" onclick="openCustomSelect('accType')">Наличные / Обычный</div>
             <input type="hidden" id="accType" value="cash">
             
             <div id="cashFields">
                 <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
                 
-                <!-- КАСТОМНЫЙ ВЫБОР ВАЛЮТЫ -->
                 <div class="custom-select-trigger" id="triggerAccCurrency" onclick="openCustomSelect('accCurrency')">Гривна (₴)</div>
                 <input type="hidden" id="accCurrency" value="UAH">
             </div>
@@ -436,7 +371,6 @@
                 </div>
             </div>
 
-            <!-- БЛОК ДЛЯ ПРИВАТБАНКА -->
             <div id="privatFields" style="display: none; margin-top: 10px;">
                 <input type="text" id="privatCardMask" placeholder="Маска карты (например, 5*58)">
                 <small style="color: #888; font-size: 11px; display:block; margin-top:3px;">Оставьте пустым для приема пушей с любых карт Приват24.</small>
@@ -453,16 +387,39 @@
         </div>
     </div>
 
-   <div id="editTxModal" class="modal">
+    <div id="editAccountModal" class="modal">
+        <div class="modal-content">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
+            <input type="hidden" id="editAccId">
+            
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка</label>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="editAccIconPicker">
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💳', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💳</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💵', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💵</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('🐖', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🐖</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💎', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💎</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('🛡️', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🛡️</button>
+                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💼', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💼</button>
+                </div>
+                <input type="hidden" id="editAccIconVal" value="💳">
+            </div>
+
+            <input type="text" id="editAccName" placeholder="Новое название счета">
+            
+            <button onclick="saveEditedAccountName()">Сохранить</button>
+            <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
+        </div>
+    </div>
+
+    <div id="editTxModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
             <input type="hidden" id="editTxId">
             
-            <!-- Кастомный выбор счета -->
             <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет...</div>
             <input type="hidden" id="editTxAccount" value="">
 
-            <!-- Кастомный выбор категории -->
             <div class="custom-select-trigger" id="triggerEditTxCategory" onclick="openCustomSelect('editTxCategory')">Категория...</div>
             <input type="hidden" id="editTxCategory" value="">
 
@@ -486,15 +443,26 @@
 
     <div id="categoryModal" class="modal">
         <div class="modal-content">
-            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;" id="categoryModalTitle">Добавить категорию</div>
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;" id="categoryModalTitle">Редактировать категорию</div>
             <input type="hidden" id="editCategoryId">
             <input type="text" id="categoryNameInput" placeholder="Название категории">
+            
+            <div class="custom-select-trigger" id="triggerEditCatType" onclick="openCustomSelect('editCatType')">Тип категории...</div>
+            <input type="hidden" id="categoryTypeInput" value="expense">
+
             <button id="saveCategoryBtn" onclick="saveNewCategory()">Сохранить</button>
             <button class="btn-secondary" onclick="closeModal('categoryModal')">Отмена</button>
         </div>
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ -->
+    <div id="customDropdownModal" class="custom-dropdown-modal" onclick="closeCustomSelect()">
+        <div class="custom-dropdown-content" onclick="event.stopPropagation()">
+            <div class="section-header" id="customDropdownTitle" style="margin-top:0;">Выберите вариант</div>
+            <div id="customDropdownList"></div>
+        </div>
+    </div>
+
+    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
     <nav class="nav-bar">
         <button class="nav-item active" onclick="switchTab('home', this)"><span class="nav-icon">🏠</span>Главная</button>
         <button class="nav-item" onclick="switchTab('accounts', this)"><span class="nav-icon">💳</span>Счета</button>
@@ -504,56 +472,11 @@
         <button class="nav-item" onclick="switchTab('settings', this)"><span class="nav-icon">⚙️</span>Еще</button>
     </nav>
 
-  <!-- Подключаем скрипты строго в правильном порядке ОДИН РАЗ -->
+    <!-- СКРИПТЫ -->
     <script src="js/bank-notify-parser.js"></script>
     <script src="js/app.js"></script>
     <script>
-        // Список вкладок по порядку для свайпов
         const tabsOrder = ['home', 'accounts', 'operations', 'analytics', 'categories', 'settings'];
-
-        function switchTab(tabName, btn) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-            
-            const targetTab = document.getElementById('tab-' + tabName);
-            if (targetTab) targetTab.classList.add('active');
-            
-            if (!btn) {
-                // Если переключение вызвано свайпом, ищем нужную кнопку в навигации
-                const navButtons = document.querySelectorAll('.nav-item');
-                const index = tabsOrder.indexOf(tabName);
-                if (navButtons[index]) navButtons[index].classList.add('active');
-            } else {
-                btn.classList.add('active');
-            }
-
-            if(tabName === 'analytics') renderAnalytics();
-        }
-
-        // Поддержка свайпов пальцем (Touch Gestures)
-        let touchStartX = 0;
-        let touchEndX = 0;
-
-        document.addEventListener('touchstart', e => {
-            touchStartX = e.changedTouches[0].screenX;
-        }, false);
-
-        document.addEventListener('touchend', e => {
-            touchEndX = e.changedTouches[0].screenX;
-            handleSwipe();
-        }, false);
-
-        function handleSwipe() {
-            const threshold = 70; // минимальная длина свайпа в пикселях
-            if (touchEndX < touchStartX - threshold) {
-                // Свайп влево -> следующая вкладка
-                changeTabRelative(1);
-            }
-            if (touchEndX > touchStartX + threshold) {
-                // Свайп вправо -> предыдущая вкладка
-                changeTabRelative(-1);
-            }
-        }
 
         function changeTabRelative(direction) {
             const activeTabContent = document.querySelector('.tab-content.active');
@@ -567,66 +490,80 @@
             }
         }
 
-        function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
-        function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-        
-        function toggleBankSelect() {
-            const type = document.getElementById('accType').value;
-            document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
-            document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
-        }
-        
-        function toggleTransferFields() {
-            const type = document.getElementById('manualType').value;
-            const toAcc = document.getElementById('opToAccountSelect');
-            const cat = document.getElementById('opCategorySelect');
-            const targetAmount = document.getElementById('transferTargetAmount');
-            const desc = document.getElementById('manualDesc');
+        // Глобальный свайп вкладок с фильтрацией конфликтов
+        let touchStartX = null;
 
-            if (type === 'transfer') {
-                toAcc.style.display = 'block';
-                cat.style.display = 'none';
-                targetAmount.style.display = 'block';
-                desc.placeholder = 'Описание перевода (необязательно)';
-                if (window.updateTransferCalculation) window.updateTransferCalculation();
-            } else {
-                toAcc.style.display = 'none';
-                cat.style.display = 'block';
-                targetAmount.style.display = 'none';
-                desc.placeholder = 'Описание (напр. Супермаркет)';
+        document.addEventListener('touchstart', e => {
+            if (e.target.closest('.account-card-front') || e.target.closest('.modal') || e.target.closest('.custom-dropdown-content')) {
+                touchStartX = null; 
+                return;
+            }
+            touchStartX = e.changedTouches[0].screenX;
+        }, {passive: false});
+
+        document.addEventListener('touchend', e => {
+            if (touchStartX === null) return;
+            const touchEndX = e.changedTouches[0].screenX;
+            const threshold = 70;
+            if (touchEndX < touchStartX - threshold) {
+                changeTabRelative(1);
+            } else if (touchEndX > touchStartX + threshold) {
+                changeTabRelative(-1);
+            }
+        }, {passive: false});
+
+        // Свайп по карточке счета
+        let xDown = null;
+        let yDown = null;
+        let activeCardFront = null;
+
+        function handleTouchStart(evt) {
+            const front = evt.target.closest('.account-card-front');
+            if (!front) return;
+            evt.stopPropagation();
+            xDown = evt.touches[0].clientX;
+            yDown = evt.touches[0].clientY;
+            activeCardFront = front;
+        }
+
+        function handleTouchMove(evt) {
+            if (!xDown || !yDown || !activeCardFront) return;
+
+            let xUp = evt.touches[0].clientX;
+            let yUp = evt.touches[0].clientY;
+            let xDiff = xDown - xUp;
+            let yDiff = yDown - yUp;
+
+            if (Math.abs(xDiff) > Math.abs(yDiff)) {
+                evt.preventDefault();
+                evt.stopPropagation();
+                if (xDiff > 20) {
+                    activeCardFront.style.transform = 'translateX(-130px)';
+                } else if (xDiff < -20) {
+                    activeCardFront.style.transform = 'translateX(0)';
+                }
             }
         }
 
-    
-
-        function openCustomSelect(type) {
-            activeSelectType = type;
-            const modal = document.getElementById('customDropdownModal');
-            const listContainer = document.getElementById('customDropdownList');
-            const titleEl = document.getElementById('customDropdownTitle');
-            listContainer.innerHTML = '';
-
-            let items = selectDataCache[type] || [];
-            if (type === 'title') titleEl.innerText = 'Выберите';
-
-            items.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'custom-dropdown-item';
-                div.innerText = item.name;
-                div.onclick = () => {
-                    selectCustomOption(type, item.id, item.name);
-                    closeCustomSelect();
-                };
-                listContainer.appendChild(div);
-            });
-
-            modal.style.display = 'flex';
+        function handleTouchEnd() {
+            xDown = null;
+            yDown = null;
+            activeCardFront = null;
         }
 
-        function closeCustomSelect() {
-            document.getElementById('customDropdownModal').style.display = 'none';
-        }
+        document.addEventListener('touchstart', handleTouchStart, false);
+        document.addEventListener('touchmove', handleTouchMove, {passive: false});
+        document.addEventListener('touchend', handleTouchEnd, false);
 
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.account-swipe-container')) {
+                document.querySelectorAll('.account-card-front').forEach(el => {
+                    el.style.transform = 'translateX(0)';
+                });
+            }
+        });
+
+        // Кастомные списки выбора
         let activeSelectType = null;
         let selectDataCache = { 
             account: [], 
@@ -650,7 +587,41 @@
             monoCard: [],
             editTxAccount: [],
             editTxCategory: [],
+            catType: [
+                {id: 'expense', name: 'Расход'},
+                {id: 'income', name: 'Доход'}
+            ],
+            editCatType: [
+                {id: 'expense', name: 'Расход'},
+                {id: 'income', name: 'Доход'}
+            ]
         };
+
+        function openCustomSelect(type) {
+            activeSelectType = type;
+            const modal = document.getElementById('customDropdownModal');
+            const listContainer = document.getElementById('customDropdownList');
+            listContainer.innerHTML = '';
+
+            let items = selectDataCache[type] || [];
+
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'custom-dropdown-item';
+                div.innerText = item.name;
+                div.onclick = () => {
+                    selectCustomOption(type, item.id, item.name);
+                    closeCustomSelect();
+                };
+                listContainer.appendChild(div);
+            });
+
+            modal.style.display = 'flex';
+        }
+
+        function closeCustomSelect() {
+            document.getElementById('customDropdownModal').style.display = 'none';
+        }
 
         function selectCustomOption(type, id, name) {
             if (type === 'account') {
@@ -678,38 +649,61 @@
             } else if (type === 'monoCard') {
                 document.getElementById('monoCardSelect').value = id;
                 document.getElementById('triggerMonoCard').innerText = name;
-            }
-            else if (type === 'editTxAccount') {
+            } else if (type === 'editTxAccount') {
                 document.getElementById('editTxAccount').value = id;
                 document.getElementById('triggerEditTxAccount').innerText = name;
             } else if (type === 'editTxCategory') {
                 document.getElementById('editTxCategory').value = id;
                 document.getElementById('triggerEditTxCategory').innerText = name;
+            } else if (type === 'catType') {
+                document.getElementById('newCatType').value = id;
+                document.getElementById('triggerNewCatType').innerText = name;
+            } else if (type === 'editCatType') {
+                document.getElementById('categoryTypeInput').value = id;
+                document.getElementById('triggerEditCatType').innerText = name;
             }
         }
 
-        // Обновляем функцию переключения полей банка в модалке счета
         function toggleBankSelect() {
             const type = document.getElementById('accType').value;
             document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
             document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
             document.getElementById('cashFields').style.display = (type === 'bank') ? 'none' : 'block';
         }
-        // Выбор иконки при создании
+
+        function toggleTransferFields() {
+            const type = document.getElementById('manualType').value;
+            const toAcc = document.getElementById('triggerToAccount');
+            const cat = document.getElementById('triggerCategory');
+            const targetAmount = document.getElementById('transferTargetAmount');
+            const desc = document.getElementById('manualDesc');
+
+            if (type === 'transfer') {
+                toAcc.style.display = 'flex';
+                cat.style.display = 'none';
+                targetAmount.style.display = 'block';
+                desc.placeholder = 'Описание перевода (необязательно)';
+                if (window.updateTransferCalculation) window.updateTransferCalculation();
+            } else {
+                toAcc.style.display = 'none';
+                cat.style.display = 'flex';
+                targetAmount.style.display = 'none';
+                desc.placeholder = 'Описание (напр. Супермаркет)';
+            }
+        }
+
         function selectAccIcon(icon, btn) {
             document.querySelectorAll('.icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
             btn.style.borderColor = 'var(--primary-color)';
             document.getElementById('accIcon').value = icon;
         }
 
-        // Выбор иконки при редактировании
         function selectEditAccIcon(icon, btn) {
             document.querySelectorAll('.edit-icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
             btn.style.borderColor = 'var(--primary-color)';
             document.getElementById('editAccIconVal').value = icon;
         }
 
-        // Открытие модалки редактирования счета
         async function openEditAccountModal(accountId) {
             const accounts = await getAllAccounts();
             const acc = accounts.find(a => a.id === accountId);
@@ -720,7 +714,6 @@
             const icon = acc.icon || '💳';
             document.getElementById('editAccIconVal').value = icon;
 
-            // Подсвечиваем нужную иконку
             document.querySelectorAll('.edit-icon-chip').forEach(el => {
                 if (el.innerText === icon) {
                     el.style.borderColor = 'var(--primary-color)';
@@ -732,7 +725,6 @@
             openModal('editAccountModal');
         }
 
-        // Сохранение измененного счета
         async function saveEditedAccountName() {
             const accountId = document.getElementById('editAccId').value;
             const newName = document.getElementById('editAccName').value.trim();
@@ -744,7 +736,6 @@
             const acc = accounts.find(a => a.id === accountId);
             if (!acc) return;
 
-            // Меняем только имя и иконку, оставляя всю финансовую логику и историю нетронутой!
             acc.name = newName;
             acc.icon = newIcon;
 
@@ -752,86 +743,6 @@
             closeModal('editAccountModal');
             await refreshAppData();
         }
-        // Логика свайпа карточек счетов
-        document.addEventListener('touchstart', handleTouchStart, false);
-        document.addEventListener('touchmove', handleTouchMove, false);
-        document.addEventListener('touchend', handleTouchEnd, false);
-let xDown = null;
-        let yDown = null;
-        let activeCardFront = null;
-
-        function handleTouchStart(evt) {
-            const front = evt.target.closest('.account-card-front');
-            if (!front) return;
-            xDown = evt.touches[0].clientX;
-            yDown = evt.touches[0].clientY;
-            activeCardFront = front;
-        }
-
-        function handleTouchMove(evt) {
-            if (!xDown || !yDown || !activeCardFront) return;
-
-            let xUp = evt.touches[0].clientX;
-            let yUp = evt.touches[0].clientY;
-            let xDiff = xDown - xUp;
-            let yDiff = yDown - yUp;
-
-            // Если движение горизонтальное — блокируем смену вкладок и прокрутку страницы
-            if (Math.abs(xDiff) > Math.abs(yDiff)) {
-                evt.preventDefault(); 
-                if (xDiff > 20) {
-                    activeCardFront.style.transform = 'translateX(-130px)';
-                } else if (xDiff < -20) {
-                    activeCardFront.style.transform = 'translateX(0)';
-                }
-            }
-        }
-
-        function handleTouchEnd() {
-            xDown = null;
-            yDown = null;
-            activeCardFront = null;
-        }
-
-        // Клик вне карточки закрывает открытые свайпы
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.account-swipe-container')) {
-                document.querySelectorAll('.account-card-front').forEach(el => {
-                    el.style.transform = 'translateX(0)';
-                });
-            }
-        });
     </script>
-    <!-- УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ КАСТОМНЫХ СПИСКОВ -->
-    <div id="customDropdownModal" class="custom-dropdown-modal" onclick="closeCustomSelect()">
-        <div class="custom-dropdown-content" onclick="event.stopPropagation()">
-            <div class="section-header" id="customDropdownTitle" style="margin-top:0;">Выберите вариант</div>
-            <div id="customDropdownList"></div>
-        </div>
-    </div>
-    <div id="editAccountModal" class="modal">
-        <div class="modal-content">
-            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
-            <input type="hidden" id="editAccId">
-            
-            <div style="margin-bottom: 12px;">
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка</label>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="editAccIconPicker">
-                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💳', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💳</button>
-                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💵', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💵</button>
-                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('🐖', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🐖</button>
-                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💎', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💎</button>
-                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('🛡️', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🛡️</button>
-                    <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💼', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💼</button>
-                </div>
-                <input type="hidden" id="editAccIconVal" value="💳">
-            </div>
-
-            <input type="text" id="editAccName" placeholder="Новое название счета">
-            
-            <button onclick="saveEditedAccountName()">Сохранить</button>
-            <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
-        </div>
-    </div>
 </body>
 </html>

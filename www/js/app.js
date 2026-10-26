@@ -106,7 +106,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // Слушатели для конвертации перевода
   const opAcc = document.getElementById("opAccountSelect");
   const opToAcc = document.getElementById("opToAccountSelect");
   const manAmount = document.getElementById("manualAmount");
@@ -117,7 +116,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     manAmount.addEventListener("input", window.updateTransferCalculation);
 });
 
-// --- АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ---
 async function autoSyncBanks() {
   const accounts = await getAllAccounts();
   const now = Date.now();
@@ -132,7 +130,6 @@ async function autoSyncBanks() {
   }
 }
 
-// --- ГЛОБАЛЬНЫЕ ФУНКЦИИ ИНТЕРФЕЙСА ---
 window.switchTab = function (tabName, btn) {
   document
     .querySelectorAll(".tab-content")
@@ -140,7 +137,8 @@ window.switchTab = function (tabName, btn) {
   document
     .querySelectorAll(".nav-item")
     .forEach((el) => el.classList.remove("active"));
-  document.getElementById("tab-" + tabName).classList.add("active");
+  const targetTab = document.getElementById("tab-" + tabName);
+  if (targetTab) targetTab.classList.add("active");
   if (btn) btn.classList.add("active");
   if (tabName === "analytics") renderAnalytics();
 };
@@ -152,7 +150,6 @@ window.closeModal = function (modalId) {
   document.getElementById(modalId).style.display = "none";
 };
 
-// --- КОНВЕРТАЦИЯ ПРИ ПЕРЕВОДАХ ---
 window.updateTransferCalculation = async function () {
   const type = document.getElementById("manualType").value;
   if (type !== "transfer") return;
@@ -190,7 +187,6 @@ window.updateTransferCalculation = async function () {
   targetInput.value = targetAmount.toFixed(2);
 };
 
-// --- ЗАГРУЗКА КАРТ МОНОБАНКА ---
 window.loadMonoAccountsList = async function () {
   const token = document.getElementById("bankToken").value.trim();
   if (!token) return alert("Сначала введите токен Монобанка");
@@ -327,9 +323,21 @@ window.createAccount = async function () {
 
 window.createCategory = async function () {
   const name = document.getElementById("newCatName").value.trim();
-  if (!name) return;
-  await saveCategory({ id: "cat_" + Date.now(), name: name });
+  const type = document.getElementById("newCatType")
+    ? document.getElementById("newCatType").value
+    : "expense";
+  if (!name) return alert("Введите название категории");
+
+  await saveCategory({
+    id: "cat_" + Date.now(),
+    name: name,
+    type: type,
+  });
+
   document.getElementById("newCatName").value = "";
+  if (typeof selectCustomOption === "function") {
+    selectCustomOption("catType", "expense", "Расход");
+  }
   await refreshAppData();
 };
 
@@ -337,8 +345,17 @@ window.openEditCategoryModal = async function (categoryId) {
   const categories = await getAllCategories();
   const category = categories.find((c) => c.id === categoryId);
   if (!category) return;
+
   document.getElementById("editCategoryId").value = categoryId;
   document.getElementById("categoryNameInput").value = category.name;
+
+  const catType = category.type || "expense";
+  const typeName = catType === "income" ? "Доход" : "Расход";
+
+  if (typeof selectCustomOption === "function") {
+    selectCustomOption("editCatType", catType, typeName);
+  }
+
   window.openModal("categoryModal");
 };
 
@@ -347,16 +364,26 @@ window.saveNewCategory = async function () {
   const categoryName = document
     .getElementById("categoryNameInput")
     .value.trim();
+  const categoryType = document.getElementById("categoryTypeInput")
+    ? document.getElementById("categoryTypeInput").value
+    : "expense";
+
   if (!categoryName) return alert("Введите название категории");
+
   if (categoryId) {
     const categories = await getAllCategories();
     const category = categories.find((c) => c.id === categoryId);
     if (category) {
       category.name = categoryName;
+      category.type = categoryType;
       await saveCategory(category);
     }
   } else {
-    await saveCategory({ id: "cat_" + Date.now(), name: categoryName });
+    await saveCategory({
+      id: "cat_" + Date.now(),
+      name: categoryName,
+      type: categoryType,
+    });
   }
   window.closeModal("categoryModal");
   await refreshAppData();
@@ -709,7 +736,6 @@ function drawLegend(containerId, data) {
   });
 }
 
-// --- БАЗА ДАННЫХ ---
 function initDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("ZenLocalDB", 3);
@@ -723,11 +749,16 @@ function initDB() {
         db.createObjectStore("transactions", { keyPath: "id" });
       if (!db.objectStoreNames.contains("categories")) {
         const catStore = db.createObjectStore("categories", { keyPath: "id" });
-        catStore.put({ id: "cat_default", name: "Без категории" });
+        catStore.put({
+          id: "cat_default",
+          name: "Без категории",
+          type: "expense",
+        });
       }
     };
   });
 }
+
 function saveAccount(acc) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("accounts", "readwrite");
@@ -736,6 +767,7 @@ function saveAccount(acc) {
     tx.onerror = () => reject(tx.error);
   });
 }
+
 function saveCategory(cat) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("categories", "readwrite");
@@ -744,6 +776,7 @@ function saveCategory(cat) {
     tx.onerror = () => reject(tx.error);
   });
 }
+
 function saveTransaction(txData) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("transactions", "readwrite");
@@ -752,6 +785,7 @@ function saveTransaction(txData) {
     tx.onerror = () => reject(tx.error);
   });
 }
+
 function removeTransaction(txId) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("transactions", "readwrite");
@@ -760,6 +794,7 @@ function removeTransaction(txId) {
     tx.onerror = () => reject(tx.error);
   });
 }
+
 function removeCategory(catId) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction("categories", "readwrite");
@@ -768,6 +803,7 @@ function removeCategory(catId) {
     tx.onerror = () => reject(tx.error);
   });
 }
+
 async function getAllAccounts() {
   return new Promise((resolve) => {
     const tx = db.transaction("accounts", "readonly");
@@ -775,6 +811,7 @@ async function getAllAccounts() {
     req.onsuccess = () => resolve(req.result);
   });
 }
+
 async function getAllCategories() {
   return new Promise((resolve) => {
     const tx = db.transaction("categories", "readonly");
@@ -782,6 +819,7 @@ async function getAllCategories() {
     req.onsuccess = () => resolve(req.result);
   });
 }
+
 async function getAllTransactions() {
   return new Promise((resolve) => {
     const tx = db.transaction("transactions", "readonly");
@@ -816,7 +854,6 @@ async function fetchRates() {
       `${exchangeRates.EUR.toFixed(2)} ₴`;
 }
 
-// --- ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ ДАННЫХ ---
 async function refreshAppData() {
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
@@ -1002,11 +1039,9 @@ async function refreshAppData() {
   const categoriesList = document.getElementById("categoriesList");
   if (categoriesList) {
     categoriesList.innerHTML = "";
-    const incomeCategories = categories.filter(
-      (c) => c.type === "income" || c.id === "cat_default",
-    );
+    const incomeCategories = categories.filter((c) => c.type === "income");
     const expenseCategories = categories.filter(
-      (c) => c.type === "expense" || (!c.type && c.id !== "cat_default"),
+      (c) => c.type === "expense" || !c.type || c.id === "cat_default",
     );
 
     const renderCatGroup = (title, cats) => {
@@ -1106,6 +1141,7 @@ window.deleteAccount = async function (accountId) {
     await refreshAppData();
   };
 };
+
 // ==========================================
 // ЭКСПОРТ И ИМПОРТ ДАННЫХ
 // ==========================================
