@@ -872,7 +872,7 @@ async function refreshAppData() {
       homeCard.innerHTML = `
             <div class="account-info">
                 <span class="account-name">${acc.name}</span>
-                <span class="account-sub">${acc.type === "bank" ? "Банк: " + acc.bank : "Наличные"}</span>
+                <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
                     ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Синхронизировать</button>` : ""}
                 </div>
@@ -889,7 +889,7 @@ async function refreshAppData() {
       adminCard.innerHTML = `
             <div class="account-info">
                 <span class="account-name">${acc.name}</span>
-                <span class="account-sub">${acc.type === "bank" ? "Банк: " + acc.bank : "Наличные"}</span>
+                <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
                 <div class="account-actions">
                     <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить</button>
                     <button class="btn-secondary btn-sm" style="background: #d9534f; color: white; border: none;" onclick="deleteAccount('${acc.id}')">Удалить</button>
@@ -1415,99 +1415,50 @@ window.processPushNotification = async function(rawText, postTime = Date.now()) 
         return;
     }
 
-    // 1. Парсим текст пуша через твой скрипт
     const parsed = BankNotifyParser.parsePrivatNotification({ text: rawText, postTime: postTime });
-    
-    if (!parsed.ok) {
-        console.log(" Пуш проигнорирован (не финансовая операция):", parsed.reason);
+    if (!parsed.ok) return;
+
+    const accounts = await getAllAccounts();
+    let targetAccount = null;
+
+    for (const acc of accounts) {
+        if (acc.type === 'privat') {
+            if (!acc.cardMask || acc.cardMask === parsed.cardMask) {
+                targetAccount = acc;
+                break;
+            }
+        }
+    }
+
+    if (!targetAccount) {
+        console.warn(`⚠️ Операция по карте ${parsed.cardMask}, но счет Приват24 не найден!`);
         return;
     }
 
-    console.log(" Распознан платеж Приват24:", parsed);
+    const newTransaction = {
+        id: "tx_" + Date.now(),
+        accountId: targetAccount.id,
+        categoryId: "cat_default", 
+        type: parsed.type, 
+        amount: Math.round(parsed.amount * 100), 
+        date: Math.floor(parsed.opTime / 1000), // Исправлено на секунды для совместимости с твоей датой
+        description: `${parsed.kind}. ${parsed.details}`.trim(),
+        userModified: false
+    };
 
-    // 2. Ищем счет типа 'privat' в IndexedDB
-    if (!window.db) {
-        console.error("❌ База данных IndexedDB еще не инициализирована");
-        return;
+    if (newTransaction.type === 'expense') {
+        newTransaction.amount = -Math.abs(newTransaction.amount);
     }
 
-    const transaction = db.transaction(["accounts", "transactions"], "readwrite");
-    const accountsStore = transaction.objectStore("accounts");
+    if (parsed.balanceAfter !== null) {
+        targetAccount.startBalance = Math.round(parsed.balanceAfter * 100);
+    } else {
+        targetAccount.startBalance += newTransaction.amount - Math.round((parsed.commission || 0) * 100);
+    }
+
+    await saveAccount(targetAccount);
+    await saveTransaction(newTransaction);
     
-    accountsStore.getAll().onsuccess = async function(event) {
-        const accounts = event.target.result;
-        let targetAccount = null;
-
-        for (const acc of accounts) {
-            if (acc.type === 'privat') {
-                // Если маска пустая или совпадает с картой из пуша
-                if (!acc.cardMask || acc.cardMask === parsed.cardMask) {
-                    targetAccount = acc;
-                    break;
-                }
-            }
-        }
-
-        if (!targetAccount) {
-            console.warn(`⚠️ Операция по карте ${parsed.cardMask}, но счет Приват24 в приложении не найден!`);
-            return;
-        }
-
-        // 3. Создаем объект транзакции
-        const newTransaction = {
-            id: "tx_" + Date.now(),
-            accountId: targetAccount.id,
-            categoryId: null, // Категорию можно будет выбрать в приложении
-            type: parsed.type, // 'income' или 'expense'
-            amount: Math.round(parsed.amount * 100), // В копейках
-            date: new Date(parsed.opTime).toISOString(),
-            comment: `${parsed.kind}. ${parsed.details}`.trim(),
-            commission: Math.round((parsed.commission || 0) * 100)
-        };
-
-        // 4. Обновляем баланс счета
-        if (parsed.balanceAfter !== null) {
-            targetAccount.startBalance = Math.round(parsed.balanceAfter * 100);
-        } else {
-            targetAccount.startBalance += Math.round(parsed.signedAmount * 100) - newTransaction.commission;
-        }
-
-        // 5. Записываем в базу
-        const writeTx = db.transaction(["accounts", "transactions"], "readwrite");
-        writeTx.objectStore("accounts").put(targetAccount);
-        writeTx.objectStore("transactions").put(newTransaction);
-
-        writeTx.oncomplete = () => {
-            console.log("✅ Успешно сохранено в базу из Приват24!");
-            if (typeof refreshAppData === 'function') {
-                refreshAppData();
-            }
-        };
-    };
-};
-window.deleteAccount = async function(accountId) {
-    if (!confirm("Удалить этот счет? История операций по нему также будет удалена.")) return;
-
-    const tx = db.transaction(["accounts", "transactions"], "readwrite");
-    
-    // Удаляем сам счет
-    tx.objectStore("accounts").delete(accountId);
-    
-    // Опционально: можно удалить связанные транзакции, чтобы не висели "сироты"
-    const txStore = tx.objectStore("transactions");
-    const request = txStore.openCursor();
-    request.onsuccess = function(e) {
-        const cursor = e.target.result;
-        if (cursor) {
-            if (cursor.value.accountId === accountId) {
-                cursor.delete();
-            }
-            cursor.continue();
-        }
-    };
-
-    tx.oncomplete = () => {
-        console.log("✅ Счет успешно удален");
-        refreshAppData();
-    };
+    console.log("✅ Успешно сохранено из Приват24!");
+    if (typeof refreshAppData === 'function') await refreshAppData();
 };

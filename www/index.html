@@ -285,27 +285,21 @@
         <button class="nav-item" onclick="switchTab('settings', this)"><span class="nav-icon">⚙️</span>Еще</button>
     </nav>
 
+  <!-- Подключаем скрипты строго в правильном порядке ОДИН РАЗ -->
+    <script src="js/bank-notify-parser.js"></script>
     <script src="js/app.js"></script>
+    
     <script>
         function switchTab(tabName, btn) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
             document.getElementById('tab-' + tabName).classList.add('active');
             btn.classList.add('active');
-            if(tabName === 'analytics') renderAnalytics(); // Отрисовываем график при переходе на вкладку
+            if(tabName === 'analytics') renderAnalytics();
         }
         function openModal(modalId) { document.getElementById(modalId).style.display = 'flex'; }
         function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
-        function toggleBankSelect() {
-            const type = document.getElementById('accType').value;
-            document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
-        }
-    </script>
-    <!-- Подключаем файл парсера перед app.js -->
-    <script src="js/bank-notify-parser.js"></script>
-    <script src="js/app.js"></script>
-    
-    <script>
+        
         // Обновленная функция переключения отображения полей
         function toggleBankSelect() {
             const type = document.getElementById('accType').value;
