@@ -1,12 +1,10 @@
 let db;
 let exchangeRates = { USD: 41.5, EUR: 45.0 };
 
-// Твой Client ID от Google Cloud
 const GOOGLE_CLIENT_ID =
   "890708614909-kbcj733qlet8g8kapjq0kiikvmi8rpda.apps.googleusercontent.com";
-let googleTokenClient;
 let currentGoogleToken = localStorage.getItem("google_access_token");
-// Палитра для диаграммы (до 20 цветов)
+
 const CHART_COLORS = [
   "#f44336",
   "#2196F3",
@@ -31,7 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     db = await initDB();
     await fetchRates();
     await refreshAppData();
-    await autoSyncBanks(); // Запуск авто-синхронизации
+    await autoSyncBanks();
   } catch (error) {
     console.error("Ошибка инициализации:", error);
   }
@@ -57,7 +55,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (accountId === toAccountId)
           return alert("Выберите разные счета для перевода");
 
-        // Берем конечную сумму из нового поля (пользователь мог её отредактировать!)
         const targetRawAmount = parseFloat(
           document.getElementById("transferTargetAmount").value,
         );
@@ -66,7 +63,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         let targetAmountInKopecks = Math.round(Math.abs(targetRawAmount) * 100);
 
-        // 1. Списание со счета-отправителя (сумма отправителя)
         await saveTransaction({
           id: "tx_out_" + Date.now(),
           accountId: accountId,
@@ -75,10 +71,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           description: "Перевод: " + desc,
           date: Math.floor(Date.now() / 1000),
           userModified: true,
-          isTransfer: true, // Метка, чтобы скрывать в аналитике
+          isTransfer: true,
         });
 
-        // 2. Зачисление на счет-получатель (СКОНВЕРТИРОВАННАЯ сумма!)
         await saveTransaction({
           id: "tx_in_" + (Date.now() + 1),
           accountId: toAccountId,
@@ -110,9 +105,19 @@ document.addEventListener("DOMContentLoaded", async () => {
       await refreshAppData();
     });
   }
+
+  // Слушатели для конвертации перевода
+  const opAcc = document.getElementById("opAccountSelect");
+  const opToAcc = document.getElementById("opToAccountSelect");
+  const manAmount = document.getElementById("manualAmount");
+  if (opAcc) opAcc.addEventListener("change", window.updateTransferCalculation);
+  if (opToAcc)
+    opToAcc.addEventListener("change", window.updateTransferCalculation);
+  if (manAmount)
+    manAmount.addEventListener("input", window.updateTransferCalculation);
 });
 
-// --- АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ (с интервалом 1 минута) ---
+// --- АВТОМАТИЧЕСКАЯ СИНХРОНИЗАЦИЯ ---
 async function autoSyncBanks() {
   const accounts = await getAllAccounts();
   const now = Date.now();
@@ -120,8 +125,6 @@ async function autoSyncBanks() {
     if (acc.type === "bank" && acc.token) {
       const lastSync = localStorage.getItem(`lastSync_${acc.id}`) || 0;
       if (now - lastSync > 60 * 1000) {
-        // 60 секунд
-        // Вызываем тихую синхронизацию
         await window.syncMonoAccount(acc.id, acc.token, true);
         localStorage.setItem(`lastSync_${acc.id}`, now);
       }
@@ -138,15 +141,18 @@ window.switchTab = function (tabName, btn) {
     .querySelectorAll(".nav-item")
     .forEach((el) => el.classList.remove("active"));
   document.getElementById("tab-" + tabName).classList.add("active");
-  btn.classList.add("active");
+  if (btn) btn.classList.add("active");
+  if (tabName === "analytics") renderAnalytics();
 };
+
 window.openModal = function (modalId) {
   document.getElementById(modalId).style.display = "flex";
 };
 window.closeModal = function (modalId) {
   document.getElementById(modalId).style.display = "none";
 };
-// --- АВТОМАТИЧЕСКАЯ КОНВЕРТАЦИЯ ПРИ ПЕРЕВОДАХ ---
+
+// --- КОНВЕРТАЦИЯ ПРИ ПЕРЕВОДАХ ---
 window.updateTransferCalculation = async function () {
   const type = document.getElementById("manualType").value;
   if (type !== "transfer") return;
@@ -154,7 +160,6 @@ window.updateTransferCalculation = async function () {
   const amount = parseFloat(document.getElementById("manualAmount").value);
   const targetInput = document.getElementById("transferTargetAmount");
 
-  // Если сумма не введена, очищаем и второе поле
   if (isNaN(amount) || amount === 0) {
     targetInput.value = "";
     return;
@@ -169,9 +174,7 @@ window.updateTransferCalculation = async function () {
   const toAcc = accounts.find((a) => a.id === toAccId);
   if (!fromAcc || !toAcc) return;
 
-  let targetAmount = amount; // По умолчанию 1 к 1
-
-  // Если валюты отличаются — считаем кросс-курс через гривну
+  let targetAmount = amount;
   if (fromAcc.currency !== toAcc.currency) {
     let amountInUAH = amount;
     if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
@@ -187,14 +190,13 @@ window.updateTransferCalculation = async function () {
   targetInput.value = targetAmount.toFixed(2);
 };
 
-// Загрузка списка карт Монобанка (для кастомного селекта)
+// --- ЗАГРУЗКА КАРТ МОНОБАНКА ---
 window.loadMonoAccountsList = async function () {
   const token = document.getElementById("bankToken").value.trim();
   if (!token) return alert("Сначала введите токен Монобанка");
 
   const container = document.getElementById("monoCardsContainer");
   const triggerMonoCard = document.getElementById("triggerMonoCard");
-
   if (triggerMonoCard) triggerMonoCard.innerText = "Загрузка карт...";
   if (container) container.style.display = "block";
 
@@ -230,38 +232,30 @@ window.loadMonoAccountsList = async function () {
         });
       });
 
-      // Сохраняем карточки в кеш кастомного селекта
-      selectDataCache.monoCard = cardItems;
-
-      if (cardItems.length > 0) {
-        // Автоматически выбираем первую карту в списке
+      if (typeof selectDataCache !== "undefined") {
+        selectDataCache.monoCard = cardItems;
+      }
+      if (cardItems.length > 0 && typeof selectCustomOption === "function") {
         selectCustomOption("monoCard", cardItems[0].id, cardItems[0].name);
-      } else {
-        if (triggerMonoCard) triggerMonoCard.innerText = "Счетов не найдено";
       }
     } else {
       if (triggerMonoCard) triggerMonoCard.innerText = "Счетов не найдено";
-      selectDataCache.monoCard = [];
     }
   } catch (e) {
-    if (triggerMonoCard)
-      triggerMonoCard.innerText = "Ошибка загрузки (проверьте токен)";
-    selectDataCache.monoCard = [];
+    if (triggerMonoCard) triggerMonoCard.innerText = "Ошибка загрузки";
   }
 };
 
 window.createAccount = async function () {
   const nameInput = document.getElementById("accName").value.trim();
   const type = document.getElementById("accType").value;
-  const isSavings = document.getElementById("accIsSavings").checked; // <-- ДОБАВИТЬ ЭТО
+  const isSavings = document.getElementById("accIsSavings").checked;
   const icon = document.getElementById("accIcon")
     ? document.getElementById("accIcon").value
     : "💳";
-
   let newAccount = {};
 
   if (type === "bank") {
-    // Монобанк
     const token = document.getElementById("bankToken").value.trim();
     const cardSelectStr = document.getElementById("monoCardSelect").value;
     if (!token || !cardSelectStr)
@@ -281,11 +275,10 @@ window.createAccount = async function () {
       bank: "monobank",
       token: token,
       bankAccountId: cardInfo.id,
-      isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
+      isSavings: isSavings,
       icon: icon,
     };
   } else if (type === "privat") {
-    // ПриватБанк (Push)
     if (!nameInput) return alert("Введите название счета");
     const startBalance =
       parseFloat(document.getElementById("accStartBalance").value) || 0;
@@ -298,16 +291,15 @@ window.createAccount = async function () {
       startBalance: Math.round(startBalance * 100),
       creditLimit: 0,
       currency: currency,
-      type: "privat", // СТРОГО ТИП privat
+      type: "privat",
       bank: "privat24",
       token: null,
       bankAccountId: null,
       cardMask: cardMask,
-      isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
+      isSavings: isSavings,
       icon: icon,
     };
   } else {
-    // Наличные
     if (!nameInput) return alert("Введите название счета");
     const startBalance =
       parseFloat(document.getElementById("accStartBalance").value) || 0;
@@ -323,7 +315,7 @@ window.createAccount = async function () {
       bank: null,
       token: null,
       bankAccountId: null,
-      isSavings: isSavings, // <-- ДОБАВИТЬ ЭТО ВО ВСЕ 3 БЛОКА
+      isSavings: isSavings,
       icon: icon,
     };
   }
@@ -340,25 +332,16 @@ window.createCategory = async function () {
   document.getElementById("newCatName").value = "";
   await refreshAppData();
 };
-window.openCreateCategoryModal = function () {
-  document.getElementById("editCategoryId").value = "";
-  document.getElementById("categoryNameInput").value = "";
-  document.getElementById("categoryModalTitle").innerText =
-    "Добавить категорию";
-  document.getElementById("saveCategoryBtn").innerText = "Создать";
-  window.openModal("categoryModal");
-};
+
 window.openEditCategoryModal = async function (categoryId) {
   const categories = await getAllCategories();
   const category = categories.find((c) => c.id === categoryId);
   if (!category) return;
   document.getElementById("editCategoryId").value = categoryId;
   document.getElementById("categoryNameInput").value = category.name;
-  document.getElementById("categoryModalTitle").innerText =
-    "Редактировать категорию";
-  document.getElementById("saveCategoryBtn").innerText = "Сохранить";
   window.openModal("categoryModal");
 };
+
 window.saveNewCategory = async function () {
   const categoryId = document.getElementById("editCategoryId").value;
   const categoryName = document
@@ -378,6 +361,7 @@ window.saveNewCategory = async function () {
   window.closeModal("categoryModal");
   await refreshAppData();
 };
+
 window.deleteCategory = async function (categoryId) {
   if (categoryId === "cat_default")
     return alert("Нельзя удалить категорию 'Без категории'");
@@ -385,16 +369,11 @@ window.deleteCategory = async function (categoryId) {
   const usageCount = transactions.filter(
     (t) => t.categoryId === categoryId,
   ).length;
-  let confirmMsg = "Удалить категорию?";
-  if (usageCount > 0)
-    confirmMsg += `\nОперации (${usageCount}) станут 'Без категории'.`;
-  if (!confirm(confirmMsg)) return;
-  if (usageCount > 0) {
-    const txsToUpdate = transactions.filter((t) => t.categoryId === categoryId);
-    for (const t of txsToUpdate) {
-      t.categoryId = "cat_default";
-      await saveTransaction(t);
-    }
+  if (!confirm(`Удалить категорию? Операций: ${usageCount}`)) return;
+
+  for (const t of transactions.filter((t) => t.categoryId === categoryId)) {
+    t.categoryId = "cat_default";
+    await saveTransaction(t);
   }
   await removeCategory(categoryId);
   await refreshAppData();
@@ -407,28 +386,22 @@ window.openEditTransaction = async function (txId) {
   document.getElementById("editTxId").value = tx.id;
   document.getElementById("editTxAmount").value = (tx.amount / 100).toFixed(2);
   document.getElementById("editTxDesc").value = tx.description;
+
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
-  const accSelect = document.getElementById("editTxAccount");
-  const catSelect = document.getElementById("editTxCategory");
-  accSelect.innerHTML = "";
-  catSelect.innerHTML = "";
-  accounts.forEach((a) => {
-    const opt = document.createElement("option");
-    opt.value = a.id;
-    opt.innerText = a.name;
-    if (a.id === tx.accountId) opt.selected = true;
-    accSelect.appendChild(opt);
-  });
-  categories.forEach((c) => {
-    const opt = document.createElement("option");
-    opt.value = c.id;
-    opt.innerText = c.name;
-    if (c.id === tx.categoryId) opt.selected = true;
-    catSelect.appendChild(opt);
-  });
+  if (typeof selectCustomOption === "function") {
+    const acc = accounts.find((a) => a.id === tx.accountId);
+    const cat = categories.find((c) => c.id === tx.categoryId);
+    selectCustomOption("editTxAccount", tx.accountId, acc ? acc.name : "Счет");
+    selectCustomOption(
+      "editTxCategory",
+      tx.categoryId,
+      cat ? cat.name : "Категория",
+    );
+  }
   window.openModal("editTxModal");
 };
+
 window.saveEditedTransaction = async function () {
   const txId = document.getElementById("editTxId").value;
   const rawAmount = parseFloat(document.getElementById("editTxAmount").value);
@@ -447,6 +420,7 @@ window.saveEditedTransaction = async function () {
   window.closeModal("editTxModal");
   await refreshAppData();
 };
+
 window.deleteTransaction = async function () {
   await removeTransaction(document.getElementById("editTxId").value);
   window.closeModal("editTxModal");
@@ -460,6 +434,7 @@ window.openAdjustModal = function (accountId, currentBalance) {
   ).toFixed(2);
   window.openModal("adjustModal");
 };
+
 window.saveBalanceAdjustment = async function () {
   const accountId = document.getElementById("adjustAccId").value;
   const realAmountVal = parseFloat(
@@ -493,15 +468,12 @@ window.saveBalanceAdjustment = async function () {
 function setSyncStatusMsg(text, isHtml = false) {
   const statusEl = document.getElementById("status");
   const homeStatusEl = document.getElementById("homeStatus");
-  if (statusEl) {
+  if (statusEl)
     isHtml ? (statusEl.innerHTML = text) : (statusEl.innerText = text);
-  }
-  if (homeStatusEl) {
+  if (homeStatusEl)
     isHtml ? (homeStatusEl.innerHTML = text) : (homeStatusEl.innerText = text);
-  }
 }
 
-// Синхронизация Монобанка (добавлен флаг isSilent)
 window.syncMonoAccount = async function (accountId, token, isSilent = false) {
   if (!isSilent) setSyncStatusMsg("Синхронизация Монобанка...");
   try {
@@ -533,45 +505,7 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
         userModified: false,
       });
     }
-
-    const clientResponse = await fetch(
-      "https://api.monobank.ua/personal/client-info",
-      { headers },
-    );
-    if (clientResponse.ok) {
-      const clientData = await clientResponse.json();
-      if (clientData.accounts && clientData.accounts.length > 0) {
-        const bankAccount = bankAccId
-          ? clientData.accounts.find((a) => a.id === bankAccId) ||
-            clientData.accounts[0]
-          : clientData.accounts[0];
-        const realBalanceInKopecks = bankAccount.balance;
-        const realCreditLimit = bankAccount.creditLimit || 0;
-        const updatedTransactions = await getAllTransactions();
-
-        if (targetAcc) {
-          if (targetAcc.creditLimit !== realCreditLimit) {
-            targetAcc.creditLimit = realCreditLimit;
-            await saveAccount(targetAcc);
-          }
-          let internalBalance = targetAcc.startBalance;
-          updatedTransactions.forEach((tx) => {
-            if (tx.accountId === accountId) internalBalance += tx.amount;
-          });
-          const diff = realBalanceInKopecks - internalBalance;
-          if (diff !== 0) {
-            const diffUah = (diff / 100).toFixed(2);
-            setSyncStatusMsg(
-              `⚠️ Баланс расходится на <span style="color:#ff5722;">${diffUah} ₴</span>. <button class="btn-sm" style="background:#ff5722;" onclick="openAdjustModal('${accountId}', ${internalBalance + diff})">Сверить</button>`,
-              true,
-            );
-            await refreshAppData();
-            return;
-          }
-        }
-      }
-    }
-    if (!isSilent) setSyncStatusMsg(`Синхронизация успешна!`);
+    if (!isSilent) setSyncStatusMsg("Синхронизация успешна!");
     await refreshAppData();
   } catch (error) {
     if (!isSilent) setSyncStatusMsg("Ошибка подключения к Mono.");
@@ -640,31 +574,25 @@ function renderTransactionsGrouped(
   }
 }
 
-// --- ЛОГИКА АНАЛИТИКИ (График и выбор месяцев) ---
 function populateAnalyticsFilters(transactions) {
   const monthSelect = document.getElementById("analyticsMonth");
   if (!monthSelect) return;
-
   const months = new Set();
   transactions.forEach((tx) => {
     const d = new Date(tx.date * 1000);
-    // Формат YYYY-MM
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    months.add(key);
+    months.add(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+    );
   });
-
-  // Если транзакций нет, добавим текущий
   if (months.size === 0) {
     const d = new Date();
     months.add(
       `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
     );
   }
-
-  const sortedMonths = Array.from(months).sort().reverse(); // Новые сверху
+  const sortedMonths = Array.from(months).sort().reverse();
   const currentVal = monthSelect.value;
   monthSelect.innerHTML = "";
-
   const monthNames = [
     "Январь",
     "Февраль",
@@ -679,7 +607,6 @@ function populateAnalyticsFilters(transactions) {
     "Ноябрь",
     "Декабрь",
   ];
-
   sortedMonths.forEach((m) => {
     const [year, month] = m.split("-");
     const opt = document.createElement("option");
@@ -687,7 +614,6 @@ function populateAnalyticsFilters(transactions) {
     opt.innerText = `${monthNames[parseInt(month) - 1]} ${year}`;
     monthSelect.appendChild(opt);
   });
-
   if (currentVal && sortedMonths.includes(currentVal))
     monthSelect.value = currentVal;
 }
@@ -696,44 +622,34 @@ window.renderAnalytics = async function () {
   const monthVal = document.getElementById("analyticsMonth").value;
   const typeVal = document.getElementById("analyticsType").value;
   if (!monthVal) return;
-
   const transactions = await getAllTransactions();
   const categories = await getAllCategories();
   const accounts = await getAllAccounts();
 
-  // Фильтруем транзакции по месяцу и типу
   let filteredTxs = transactions.filter((tx) => {
-    // Исключаем системные корректировки из аналитики
-    if (tx.description.startsWith("Коррекция баланса")) return false;
-    // Исключаем системные корректировки и ПЕРЕВОДЫ из аналитики
     if (tx.description.startsWith("Коррекция баланса") || tx.isTransfer)
       return false;
     const d = new Date(tx.date * 1000);
     const txMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     if (txMonth !== monthVal) return false;
-
     if (typeVal === "expense") return tx.amount < 0;
     if (typeVal === "income") return tx.amount > 0;
     return false;
   });
 
-  // Группируем по категориям и приводим к базовой валюте (Гривна)
   const categoryTotals = {};
   filteredTxs.forEach((tx) => {
     const catId = tx.categoryId || "cat_default";
     const acc = accounts.find((a) => a.id === tx.accountId);
-
     let txAmountUAH = Math.abs(tx.amount);
     if (acc) {
       if (acc.currency === "USD") txAmountUAH *= exchangeRates.USD;
       if (acc.currency === "EUR") txAmountUAH *= exchangeRates.EUR;
     }
-
     if (!categoryTotals[catId]) categoryTotals[catId] = 0;
     categoryTotals[catId] += txAmountUAH;
   });
 
-  // Формируем данные для графика
   let chartData = [];
   let colorIndex = 0;
   for (let catId in categoryTotals) {
@@ -745,9 +661,7 @@ window.renderAnalytics = async function () {
     });
     colorIndex++;
   }
-  // Сортируем от большего к меньшему
   chartData.sort((a, b) => b.value - a.value);
-
   drawPieChart("analyticsChart", chartData);
   drawLegend("analyticsLegend", chartData);
 };
@@ -757,27 +671,12 @@ function drawPieChart(canvasId, data) {
   if (!canvas) return;
   const ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-
   const centerX = canvas.width / 2;
   const centerY = canvas.height / 2;
   const radius = Math.min(centerX, centerY) - 10;
-
-  if (data.length === 0) {
-    ctx.fillStyle = "#333";
-    ctx.beginPath();
-    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-    ctx.fill();
-    ctx.fillStyle = "#888";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "14px Arial";
-    ctx.fillText("Нет операций", centerX, centerY);
-    return;
-  }
-
+  if (data.length === 0) return;
   const total = data.reduce((sum, item) => sum + item.value, 0);
-  let startAngle = -Math.PI / 2; // Начинаем рисовать сверху
-
+  let startAngle = -Math.PI / 2;
   data.forEach((item) => {
     const sliceAngle = (item.value / total) * 2 * Math.PI;
     ctx.fillStyle = item.color;
@@ -794,27 +693,23 @@ function drawLegend(containerId, data) {
   const container = document.getElementById(containerId);
   if (!container) return;
   container.innerHTML = "";
-
   if (data.length === 0) return;
   const total = data.reduce((sum, item) => sum + item.value, 0);
-
   data.forEach((item) => {
     const percent = ((item.value / total) * 100).toFixed(1);
     const amountStr = (item.value / 100).toFixed(2);
-
     const row = document.createElement("div");
     row.className = "legend-item";
     row.innerHTML = `
-            <div class="legend-color" style="background-color: ${item.color};"></div>
-            <div class="legend-name">${item.label}</div>
-            <div class="legend-amount">${amountStr} ₴</div>
-            <div class="legend-percent">${percent}%</div>
-        `;
+        <div class="legend-color" style="background-color: ${item.color};"></div>
+        <div class="legend-name">${item.label}</div>
+        <div class="legend-amount">${amountStr} ₴</div>
+        <div class="legend-percent">${percent}%</div>`;
     container.appendChild(row);
   });
 }
 
-// --- БАЗА ДАННЫХ И ИНИЦИАЛИЗАЦИЯ ---
+// --- БАЗА ДАННЫХ ---
 function initDB() {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open("ZenLocalDB", 3);
@@ -912,500 +807,302 @@ async function fetchRates() {
     if (eurRate)
       exchangeRates.EUR =
         eurRate.rateSell || eurRate.rateCross || exchangeRates.EUR;
-    if (document.getElementById("rateUsd"))
-      document.getElementById("rateUsd").innerText =
-        `${exchangeRates.USD.toFixed(2)} ₴`;
-    if (document.getElementById("rateEur"))
-      document.getElementById("rateEur").innerText =
-        `${exchangeRates.EUR.toFixed(2)} ₴`;
-  } catch (e) {
-    if (document.getElementById("rateUsd"))
-      document.getElementById("rateUsd").innerText =
-        `${exchangeRates.USD.toFixed(2)} ₴`;
-    if (document.getElementById("rateEur"))
-      document.getElementById("rateEur").innerText =
-        `${exchangeRates.EUR.toFixed(2)} ₴`;
-  }
+  } catch (e) {}
+  if (document.getElementById("rateUsd"))
+    document.getElementById("rateUsd").innerText =
+      `${exchangeRates.USD.toFixed(2)} ₴`;
+  if (document.getElementById("rateEur"))
+    document.getElementById("rateEur").innerText =
+      `${exchangeRates.EUR.toFixed(2)} ₴`;
 }
 
-refreshAppData
-
-// --- ЭКСПОРТ (С поддержкой нативного меню Android Share) ---
-window.exportData = async function () {
+// --- ГЛАВНАЯ ФУНКЦИЯ ОБНОВЛЕНИЯ ДАННЫХ ---
+async function refreshAppData() {
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
   const transactions = await getAllTransactions();
 
-  const backup = {
-    appName: "ZenLocal",
-    version: "1.0",
-    date: new Date().toISOString(),
-    accounts,
-    categories,
-    transactions,
+  populateAnalyticsFilters(transactions);
+
+  const homeAccountsList = document.getElementById("homeAccountsList");
+  const accountsList = document.getElementById("accountsList");
+  const opAccountSelect = document.getElementById("opAccountSelect");
+  const opToAccountSelect = document.getElementById("opToAccountSelect");
+
+  const homeTransactions = document.getElementById("homeTransactions");
+  const txContainer = document.getElementById("transactions");
+
+  if (homeAccountsList) homeAccountsList.innerHTML = "";
+  if (accountsList) accountsList.innerHTML = "";
+  if (opAccountSelect) opAccountSelect.innerHTML = "";
+  if (opToAccountSelect) opToAccountSelect.innerHTML = "";
+
+  let totalGlobalBalanceUAH = 0;
+  const mainAccounts = accounts.filter((acc) => !acc.isSavings);
+  const savingsAccounts = accounts.filter((acc) => acc.isSavings);
+
+  const renderAccountCardHTML = (acc, accBalance, isMainView) => {
+    let creditLimit = acc.creditLimit || 0;
+    let ownFunds = accBalance - creditLimit;
+    const symbol =
+      acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
+    const ownFundsStr = (ownFunds / 100).toFixed(2);
+    const availableStr = (accBalance / 100).toFixed(2);
+    const accIcon = acc.icon || "💳";
+    const savingsBadge = acc.isSavings
+      ? `<span style="background: #9C27B0; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; margin-left: 5px;">Сейф</span>`
+      : "";
+
+    let sumHtml = `<div class="account-sum">${ownFundsStr} ${symbol}</div>`;
+    if (creditLimit > 0) {
+      sumHtml = `
+          <div class="account-sum" style="color: ${ownFunds < 0 ? "#f44336" : "white"};">${ownFundsStr} ${symbol}</div>
+          <div style="font-size: 11px; color: #888; text-align: right; margin-top: 3px;">Доступно: ${availableStr} ${symbol}</div>
+      `;
+    }
+
+    if (isMainView) {
+      return `
+          <div class="account-info">
+              <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
+              <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
+          </div>
+          <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
+      `;
+    } else {
+      let hiddenActionsHtml = `
+          <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+          <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+      `;
+      if (acc.type === "bank" && acc.token) {
+        hiddenActionsHtml = `
+              <button class="swipe-action-btn swipe-sync" onclick="syncMonoAccount('${acc.id}', '${acc.token}')" title="Sync">🔄</button>
+              <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+              <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+          `;
+      }
+      return `
+          <div class="account-swipe-actions">${hiddenActionsHtml}</div>
+          <div class="account-card-front">
+              <div class="account-info">
+                  <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
+                  <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
+              </div>
+              <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
+          </div>
+      `;
+    }
   };
 
-  const jsonStr = JSON.stringify(backup, null, 2);
-  const fileName = `zenlocal_backup_${Date.now()}.json`;
+  const buildAccountListSection = (targetContainer, isMain) => {
+    if (!targetContainer) return;
+    if (mainAccounts.length > 0) {
+      const header = document.createElement("div");
+      header.className = "section-header";
+      header.style.marginTop = "0";
+      header.innerText = "Основные счета";
+      targetContainer.appendChild(header);
 
-  // Создаем файл
-  const blob = new Blob([jsonStr], { type: "application/json" });
-  const file = new File([blob], fileName, { type: "application/json" });
-
-  // Пытаемся использовать нативное меню "Поделиться" (Android/iOS)
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    try {
-      await navigator.share({
-        files: [file],
-        title: "Резервная копия ZenLocal",
-        text: "Файл резервной копии базы данных ZenLocal",
-      });
-      return; // Успешно поделились, прерываем функцию
-    } catch (e) {
-      console.log(
-        "Шаринг отменен или не удался, пробуем обычное скачивание",
-        e,
-      );
-    }
-  }
-
-  // Запасной вариант (обычное скачивание в папку Downloads)
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-};
-
-// --- ИМПОРТ И ВОССТАНОВЛЕНИЕ ДАННЫХ ---
-document.addEventListener("DOMContentLoaded", () => {
-  const importInput = document.getElementById("importFile");
-  if (importInput) {
-    importInput.addEventListener("change", function (e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = async function (event) {
-        try {
-          const data = JSON.parse(event.target.result);
-
-          // Простейшая проверка, что это наш файл
-          if (!data.accounts || !data.categories || !data.transactions) {
-            alert("Ошибка: Неверный формат файла резервной копии.");
-            importInput.value = ""; // Сбрасываем инпут
-            return;
-          }
-
-          if (
-            confirm(
-              "ВНИМАНИЕ!\n\nТекущие данные будут удалены и заменены данными из копии.\nПродолжить?",
-            )
-          ) {
-            await restoreDatabase(data);
-            alert("Данные успешно восстановлены!");
-            importInput.value = ""; // Сбрасываем инпут
-            await refreshAppData();
-          } else {
-            importInput.value = "";
-          }
-        } catch (err) {
-          console.error(err);
-          alert(
-            "Ошибка при чтении файла. Убедитесь, что выбран правильный JSON-бэкап.",
+      mainAccounts.forEach((acc) => {
+        let accBalance = acc.startBalance;
+        transactions.forEach((tx) => {
+          if (tx.accountId === acc.id) accBalance += tx.amount;
+        });
+        if (isMain) {
+          const card = document.createElement("div");
+          card.className = "account-card";
+          card.innerHTML = renderAccountCardHTML(acc, accBalance, true);
+          targetContainer.appendChild(card);
+        } else {
+          const swipeContainer = document.createElement("div");
+          swipeContainer.className = "account-swipe-container";
+          swipeContainer.innerHTML = renderAccountCardHTML(
+            acc,
+            accBalance,
+            false,
           );
-          importInput.value = "";
+          targetContainer.appendChild(swipeContainer);
         }
-      };
-      reader.readAsText(file);
-    });
-  }
-  document
-    .getElementById("opAccountSelect")
-    .addEventListener("change", window.updateTransferCalculation);
-  document
-    .getElementById("opToAccountSelect")
-    .addEventListener("change", window.updateTransferCalculation);
-  document
-    .getElementById("manualAmount")
-    .addEventListener("input", window.updateTransferCalculation);
-});
-
-// Функция полной очистки и перезаписи базы при импорте
-async function restoreDatabase(data) {
-  return new Promise((resolve, reject) => {
-    // Очищаем все хранилища
-    const tx = db.transaction(
-      ["accounts", "categories", "transactions"],
-      "readwrite",
-    );
-    const accStore = tx.objectStore("accounts");
-    const catStore = tx.objectStore("categories");
-    const transStore = tx.objectStore("transactions");
-
-    accStore.clear();
-    catStore.clear();
-    transStore.clear();
-
-    // Заливаем новые данные
-    data.accounts.forEach((acc) => accStore.put(acc));
-    data.categories.forEach((cat) => catStore.put(cat));
-    data.transactions.forEach((t) => transStore.put(t));
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-// ==========================================
-// ИНТЕГРАЦИЯ GOOGLE DRIVE (APPDATA)
-// ==========================================
-
-// Вход через нативный плагин @capgo/capacitor-social-login
-let socialLoginReady = false;
-
-window.connectGoogleAccount = async function () {
-  try {
-    const SocialLogin =
-      window.Capacitor &&
-      window.Capacitor.Plugins &&
-      window.Capacitor.Plugins.SocialLogin;
-
-    if (!SocialLogin) {
-      alert(
-        "Плагин Google-входа не найден. Он работает только в установленном приложении.",
-      );
-      return;
-    }
-
-    // Инициализация нужна один раз. Здесь именно WEB client ID
-    if (!socialLoginReady) {
-      await SocialLogin.initialize({
-        google: { webClientId: GOOGLE_CLIENT_ID },
       });
-      socialLoginReady = true;
     }
 
-    const res = await SocialLogin.login({
-      provider: "google",
-      options: {
-        scopes: ["https://www.googleapis.com/auth/drive.appdata"],
-      },
-    });
+    if (savingsAccounts.length > 0) {
+      const header = document.createElement("div");
+      header.className = "section-header";
+      header.innerText = "🐷 Накопления и сейфы";
+      targetContainer.appendChild(header);
 
-    const at = res && res.result && res.result.accessToken;
-    const token = typeof at === "string" ? at : at && at.token;
-    if (!token) {
-      throw new Error(
-        "В ответе нет access token. Поля ответа: " +
-          Object.keys((res && res.result) || {}).join(", "),
+      savingsAccounts.forEach((acc) => {
+        let accBalance = acc.startBalance;
+        transactions.forEach((tx) => {
+          if (tx.accountId === acc.id) accBalance += tx.amount;
+        });
+        if (isMain) {
+          const card = document.createElement("div");
+          card.className = "account-card";
+          card.style.borderColor = "rgba(156, 39, 176, 0.3)";
+          card.innerHTML = renderAccountCardHTML(acc, accBalance, true);
+          targetContainer.appendChild(card);
+        } else {
+          const swipeContainer = document.createElement("div");
+          swipeContainer.className = "account-swipe-container";
+          swipeContainer.style.borderColor = "rgba(156, 39, 176, 0.3)";
+          swipeContainer.innerHTML = renderAccountCardHTML(
+            acc,
+            accBalance,
+            false,
+          );
+          targetContainer.appendChild(swipeContainer);
+        }
+      });
+    }
+  };
+
+  buildAccountListSection(homeAccountsList, true);
+  buildAccountListSection(accountsList, false);
+
+  accounts.forEach((acc) => {
+    let accBalance = acc.startBalance;
+    transactions.forEach((tx) => {
+      if (tx.accountId === acc.id) accBalance += tx.amount;
+    });
+    let creditLimit = acc.creditLimit || 0;
+    let ownFunds = accBalance - creditLimit;
+    let balanceInUAH = ownFunds;
+    if (acc.currency === "USD") balanceInUAH = ownFunds * exchangeRates.USD;
+    if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
+
+    if (!acc.isSavings) totalGlobalBalanceUAH += balanceInUAH;
+
+    const symbol =
+      acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴";
+    const availableStr = (accBalance / 100).toFixed(2);
+
+    if (opAccountSelect) {
+      const opt = document.createElement("option");
+      opt.value = acc.id;
+      opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
+      opAccountSelect.appendChild(opt);
+    }
+    if (opToAccountSelect) {
+      const optTo = document.createElement("option");
+      optTo.value = acc.id;
+      optTo.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
+      opToAccountSelect.appendChild(optTo);
+    }
+  });
+
+  document.getElementById("totalBalance").innerText =
+    (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
+
+  const sortedTxs = transactions.sort((a, b) => b.date - a.date).slice(0, 100);
+  renderTransactionsGrouped(sortedTxs, homeTransactions, accounts, categories);
+  renderTransactionsGrouped(sortedTxs, txContainer, accounts, categories);
+
+  const categoriesList = document.getElementById("categoriesList");
+  if (categoriesList) {
+    categoriesList.innerHTML = "";
+    const incomeCategories = categories.filter(
+      (c) => c.type === "income" || c.id === "cat_default",
+    );
+    const expenseCategories = categories.filter(
+      (c) => c.type === "expense" || (!c.type && c.id !== "cat_default"),
+    );
+
+    const renderCatGroup = (title, cats) => {
+      if (cats.length === 0) return;
+      const groupHeader = document.createElement("div");
+      groupHeader.className = "section-header";
+      groupHeader.innerText = title;
+      categoriesList.appendChild(groupHeader);
+
+      cats.forEach((cat) => {
+        const usageCount = transactions.filter(
+          (t) => t.categoryId === cat.id,
+        ).length;
+        const isDefault = cat.id === "cat_default";
+        const usageText =
+          usageCount > 0 ? `${usageCount} операций` : "Не используется";
+        const card = document.createElement("div");
+        card.className = "category-card";
+        let actionsHtml = isDefault
+          ? '<span style="color:#888;font-size:12px;">Системная</span>'
+          : `<button class="btn-sm" onclick="openEditCategoryModal('${cat.id}')">✏️</button><button class="btn-sm btn-danger" onclick="deleteCategory('${cat.id}')">✕</button>`;
+
+        card.innerHTML = `<div class="category-info"><span class="category-name">${cat.name}</span><span class="category-usage">${usageText}</span></div><div class="category-actions">${actionsHtml}</div>`;
+        categoriesList.appendChild(card);
+      });
+    };
+    renderCatGroup("📥 Категории доходов", incomeCategories);
+    renderCatGroup("📤 Категории расходов", expenseCategories);
+  }
+
+  if (document.getElementById("tab-analytics").classList.contains("active"))
+    renderAnalytics();
+
+  if (typeof selectDataCache !== "undefined") {
+    selectDataCache.account = accounts.map((a) => ({
+      id: a.id,
+      name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
+    }));
+    selectDataCache.toAccount = accounts.map((a) => ({
+      id: a.id,
+      name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
+    }));
+    selectDataCache.category = categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+    selectDataCache.editTxAccount = accounts.map((a) => ({
+      id: a.id,
+      name: a.name,
+    }));
+    selectDataCache.editTxCategory = categories.map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
+
+    if (
+      accounts.length > 0 &&
+      !document.getElementById("opAccountSelect").value &&
+      typeof selectCustomOption === "function"
+    ) {
+      selectCustomOption(
+        "account",
+        accounts[0].id,
+        selectDataCache.account[0].name,
+      );
+      selectCustomOption(
+        "toAccount",
+        accounts[accounts.length > 1 ? 1 : 0].id,
+        selectDataCache.toAccount[accounts.length > 1 ? 1 : 0].name,
       );
     }
-
-    currentGoogleToken = token;
-    localStorage.setItem("google_access_token", currentGoogleToken);
-
-    updateGoogleUI(true);
-    await checkAndSyncCloudOnLogin();
-    alert("Успешный вход в Google Аккаунт!");
-  } catch (error) {
-    console.error("Ошибка входа через Google:", error);
-    alert("Не удалось войти: " + (error.message || error));
-  }
-};
-
-// При запуске: если токен уже сохранён, пробуем использовать его
-document.addEventListener("DOMContentLoaded", () => {
-  setTimeout(() => {
-    if (currentGoogleToken) {
-      updateGoogleUI(true);
-      checkAndSyncCloudOnLogin();
+    if (
+      categories.length > 0 &&
+      !document.getElementById("opCategorySelect").value &&
+      typeof selectCustomOption === "function"
+    ) {
+      selectCustomOption("category", categories[0].id, categories[0].name);
     }
-  }, 1000);
-});
-
-function updateGoogleUI(isConnected) {
-  const status = document.getElementById("googleStatus");
-  const btnConnect = document.getElementById("btnGoogleConnect");
-  const syncBlocks = document.getElementById("googleSyncBlocks");
-
-  if (status && isConnected) {
-    status.innerText = "✅ Google Drive подключен";
-    status.style.color = "#4caf50";
-    if (btnConnect) {
-      btnConnect.innerText = "Обновить авторизацию";
-      btnConnect.style.background = "#333";
-    }
-    if (syncBlocks) syncBlocks.style.display = "flex";
-  } else if (status) {
-    status.innerText = "Аккаунт не подключен";
-    if (syncBlocks) syncBlocks.style.display = "none";
   }
 }
-
-async function findCloudBackupFile() {
-  const response = await fetch(
-    'https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name="zenlocal_sync.json"',
-    {
-      headers: { Authorization: `Bearer ${currentGoogleToken}` },
-    },
-  );
-  if (!response.ok) {
-    if (response.status === 401) {
-      // токен истёк (живёт около часа): нужно войти заново
-      localStorage.removeItem("google_access_token");
-      currentGoogleToken = null;
-      updateGoogleUI(false);
-    }
-    throw new Error("Ошибка поиска файла в Drive");
-  }
-  const data = await response.json();
-  return data.files.length > 0 ? data.files[0].id : null;
-}
-
-async function checkAndSyncCloudOnLogin() {
-  try {
-    const fileId = await findCloudBackupFile();
-    const localTransactions = await getAllTransactions();
-
-    if (fileId && localTransactions.length === 0) {
-      console.log("Свежая установка! Восстанавливаем из облака...");
-      await forceRestoreFromCloud(fileId);
-    } else if (localTransactions.length > 0) {
-      await forceBackupToCloud();
-    }
-  } catch (e) {
-    console.error("Авто-синхронизация прервана:", e);
-  }
-}
-
-window.forceBackupToCloud = async function () {
-  if (!currentGoogleToken) return;
-
-  const statusEl = document.getElementById("googleStatus");
-  if (statusEl) statusEl.innerText = "☁️ Выгрузка в облако...";
-
-  const accounts = await getAllAccounts();
-  const categories = await getAllCategories();
-  const transactions = await getAllTransactions();
-  const backup = {
-    accounts,
-    categories,
-    transactions,
-    date: new Date().toISOString(),
-  };
-  const fileContent = JSON.stringify(backup);
-  const fileBlob = new Blob([fileContent], { type: "application/json" });
-
-  try {
-    const existingFileId = await findCloudBackupFile();
-    // parents можно указывать только при создании файла, при обновлении (PATCH) Drive вернёт 403
-    const metadata = { name: "zenlocal_sync.json" };
-    if (!existingFileId) metadata.parents = ["appDataFolder"];
-
-    const form = new FormData();
-    form.append(
-      "metadata",
-      new Blob([JSON.stringify(metadata)], { type: "application/json" }),
-    );
-    form.append("file", fileBlob);
-
-    let url =
-      "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
-    let method = "POST";
-
-    if (existingFileId) {
-      url = `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart`;
-      method = "PATCH";
-    }
-
-    const res = await fetch(url, {
-      method: method,
-      headers: { Authorization: `Bearer ${currentGoogleToken}` },
-      body: form,
-    });
-
-    if (!res.ok) throw new Error("Ошибка при загрузке");
-    if (statusEl)
-      statusEl.innerText =
-        "✅ Сохранено в облаке: " + new Date().toLocaleTimeString();
-  } catch (e) {
-    console.error(e);
-    if (statusEl) statusEl.innerText = "❌ Ошибка выгрузки в облако";
-  }
-};
-
-window.forceRestoreFromCloud = async function (knownFileId = null) {
-  if (!currentGoogleToken) return alert("Сначала подключите Google аккаунт");
-
-  if (
-    !knownFileId &&
-    !confirm(
-      "ВНИМАНИЕ! Текущие локальные данные будут стерты и заменены данными из Google Drive. Продолжить?",
-    )
-  )
-    return;
-
-  const statusEl = document.getElementById("googleStatus");
-  if (statusEl) statusEl.innerText = "📥 Скачивание из облака...";
-
-  try {
-    const fileId = knownFileId || (await findCloudBackupFile());
-    if (!fileId) {
-      alert("В облаке пока нет резервной копии.");
-      if (statusEl) statusEl.innerText = "✅ Google Drive подключен";
-      return;
-    }
-
-    const res = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-      {
-        headers: { Authorization: `Bearer ${currentGoogleToken}` },
-      },
-    );
-
-    if (!res.ok) throw new Error("Ошибка скачивания");
-    const data = await res.json();
-
-    const tx = db.transaction(
-      ["accounts", "categories", "transactions"],
-      "readwrite",
-    );
-    tx.objectStore("accounts").clear();
-    tx.objectStore("categories").clear();
-    tx.objectStore("transactions").clear();
-
-    data.accounts.forEach((acc) => tx.objectStore("accounts").put(acc));
-    data.categories.forEach((cat) => tx.objectStore("categories").put(cat));
-    data.transactions.forEach((t) => tx.objectStore("transactions").put(t));
-
-    tx.oncomplete = async () => {
-      if (statusEl) statusEl.innerText = "✅ Данные восстановлены из облака";
-      await refreshAppData();
-      alert("Данные успешно подтянуты из облака!");
-    };
-  } catch (e) {
-    console.error(e);
-    if (statusEl) statusEl.innerText = "❌ Ошибка загрузки из облака";
-  }
-};
-// ==========================================
-// ИНТЕГРАЦИЯ ПРИВАТ24 (РАЗБОР ПУШ-УВЕДОМЛЕНИЙ)
-// ==========================================
 
 window.deleteAccount = async function (accountId) {
   if (
     !confirm("Удалить этот счет? История операций по нему также будет удалена.")
   )
     return;
-
   const tx = db.transaction(["accounts", "transactions"], "readwrite");
-
-  // Удаляем сам счет
   tx.objectStore("accounts").delete(accountId);
-
-  // Надежное удаление всех транзакций этого счета
   const txStore = tx.objectStore("transactions");
   const request = txStore.getAll();
   request.onsuccess = function (e) {
-    const allTxs = e.target.result;
-    allTxs.forEach((t) => {
-      if (t.accountId === accountId) {
-        txStore.delete(t.id);
-      }
+    e.target.result.forEach((t) => {
+      if (t.accountId === accountId) txStore.delete(t.id);
     });
   };
-
   tx.oncomplete = async () => {
-    console.log("✅ Счет и связанные операции удалены");
     await refreshAppData();
   };
-};
-
-// ==========================================
-// ИНТЕГРАЦИЯ ПРИВАТ24 (ОБРАБОТКА ПУШЕЙ)
-// ==========================================
-window.processPushNotification = async function (
-  rawText,
-  postTime = Date.now(),
-) {
-  if (typeof BankNotifyParser === "undefined") {
-    console.error("❌ Ошибка: BankNotifyParser не загружен!");
-    return;
-  }
-
-  const parsed = BankNotifyParser.parsePrivatNotification({
-    text: rawText,
-    postTime: postTime,
-  });
-  if (!parsed.ok) return;
-
-  const accounts = await getAllAccounts();
-  let targetAccount = null;
-
-  for (const acc of accounts) {
-    if (acc.type === "privat") {
-      if (!acc.cardMask || acc.cardMask === parsed.cardMask) {
-        targetAccount = acc;
-        break;
-      }
-    }
-  }
-
-  if (!targetAccount) {
-    console.warn(
-      `⚠️ Операция по карте ${parsed.cardMask}, но счет Приват24 не найден!`,
-    );
-    return;
-  }
-
-  const newTransaction = {
-    id: "tx_" + Date.now(),
-    accountId: targetAccount.id,
-    categoryId: "cat_default",
-    type: parsed.type,
-    amount: Math.round((parsed.amount + (parsed.commission || 0)) * 100),
-    date: Math.floor(parsed.opTime / 1000), // Исправлено на секунды для совместимости с твоей датой
-    description: `${parsed.kind}. ${parsed.details}`.trim(),
-    userModified: false,
-  };
-
-  if (newTransaction.type === "expense") {
-    newTransaction.amount = -Math.abs(newTransaction.amount);
-  }
-
-  // 1. Обновляем баланс
-  if (parsed.balanceAfter !== null) {
-    targetAccount.startBalance = Math.round(parsed.balanceAfter * 100);
-  } else {
-    targetAccount.startBalance +=
-      newTransaction.amount - Math.round((parsed.commission || 0) * 100);
-  }
-
-  // 2. Обновляем кредитный лимит, если он пришел в пуше ПриватБанка
-  if (parsed.creditLimit !== null) {
-    targetAccount.creditLimit = Math.round(parsed.creditLimit * 100);
-  }
-
-  await saveAccount(targetAccount);
-  await saveTransaction(newTransaction);
-
-  console.log("✅ Успешно сохранено из Приват24!");
-  if (typeof refreshAppData === "function") await refreshAppData();
-};
-window.processMissedPushes = async function (jsonString) {
-  try {
-    console.log(
-      "📥 Обработка фоновых пушей, пришедших пока приложение было закрыто...",
-    );
-    const pushes = JSON.parse(jsonString);
-    for (const p of pushes) {
-      // Вызываем парсер для каждого пропущенного уведомления
-      await window.processPushNotification(p.text, p.time);
-    }
-  } catch (e) {
-    console.error("❌ Ошибка обработки фоновых пушей:", e);
-  }
 };
