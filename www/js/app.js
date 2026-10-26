@@ -566,6 +566,11 @@ window.openEditTransaction = async function (txId) {
       id: a.id,
       name: a.name,
     }));
+    selectDataCache.editAccType = [
+      { id: "cash", name: "Наличные / Обычный" },
+      { id: "bank", name: "Банк (Monobank)" },
+      { id: "privat", name: "Банк (Приват24 Push)" },
+    ];
   }
 
   if (typeof selectCustomOption === "function") {
