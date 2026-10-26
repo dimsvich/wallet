@@ -216,6 +216,19 @@
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             cursor: grab; margin-bottom: 0 !important; border: none !important;
         }
+        /* Стили для объединенной карточки перевода (как в Дзен-мани) */
+        .transfer-card { cursor: pointer; }
+        .transfer-icon {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: #2a2f3d; display: flex; justify-content: center; 
+            align-items: center; margin-right: 14px; flex-shrink: 0;
+        }
+        .transfer-info { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .transfer-dest { font-weight: 600; font-size: 16px; color: var(--text-main); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .transfer-source { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .transfer-amounts { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; margin-left: 10px; }
+        .transfer-amount-in { font-weight: 600; font-size: 15px; color: var(--text-main); margin-bottom: 3px; }
+        .transfer-amount-out { font-size: 13px; color: var(--text-muted); }
     </style>
 </head>
 <body>

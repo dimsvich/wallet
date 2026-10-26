@@ -419,23 +419,44 @@ window.openEditTransaction = async function (txId) {
   if (!tx) return;
 
   document.getElementById("editTxId").value = tx.id;
-  document.getElementById("editTxAmount").value = (Math.abs(tx.amount) / 100).toFixed(2);
-  document.getElementById("editTxDesc").value = tx.description;
+  // Убираем техническое слово "Перевод: " из поля ввода, чтобы не мозолило глаза
+  document.getElementById("editTxDesc").value = tx.description.replace(/^Перевод:\s*/, "");
 
   let currentType = "expense";
   let typeName = "Расход";
+  let displayAmount = Math.abs(tx.amount);
+  let targetAmount = "";
+  let toAccountId = null;
+  let activeAccountId = tx.accountId;
+
   if (tx.isTransfer) {
     currentType = "transfer";
     typeName = "Перевод";
+
+    // Находим пару для этого перевода
+    const pairTx = transactions.find(t => t.id !== tx.id && t.description === tx.description && Math.abs(t.date - tx.date) <= 60);
+    const txOut = tx.amount < 0 ? tx : pairTx;
+    const txIn = tx.amount > 0 ? tx : pairTx;
+
+    if (txOut && txIn) {
+        displayAmount = Math.abs(txOut.amount);
+        targetAmount = (txIn.amount / 100).toFixed(2);
+        toAccountId = txIn.accountId;
+        activeAccountId = txOut.accountId; 
+    }
   } else if (tx.amount > 0) {
     currentType = "income";
     typeName = "Доход";
   }
 
+  document.getElementById("editTxAmount").value = (displayAmount / 100).toFixed(2);
+  if (document.getElementById("editTxTargetAmount")) {
+      document.getElementById("editTxTargetAmount").value = targetAmount;
+  }
+
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
 
-  // Заполняем кэш второго счета
   if (typeof selectDataCache !== "undefined") {
     selectDataCache.editTxToAccount = accounts.map((a) => ({ id: a.id, name: a.name }));
   }
@@ -443,16 +464,19 @@ window.openEditTransaction = async function (txId) {
   if (typeof selectCustomOption === "function") {
     selectCustomOption('editTxType', currentType, typeName);
 
-    const acc = accounts.find((a) => a.id === tx.accountId);
+    const acc = accounts.find((a) => a.id === activeAccountId);
     const cat = categories.find((c) => c.id === tx.categoryId);
 
-    selectCustomOption('editTxAccount', tx.accountId, acc ? acc.name : 'Счет');
+    selectCustomOption('editTxAccount', activeAccountId, acc ? acc.name : 'Счет');
     selectCustomOption('editTxCategory', tx.categoryId || 'cat_default', cat ? cat.name : 'Без категории');
 
-    // Если это перевод, выберем другой доступный счет как получателя по умолчанию
-    const otherAcc = accounts.find((a) => a.id !== tx.accountId) || accounts[0];
-    if (otherAcc) {
-      selectCustomOption('editTxToAccount', otherAcc.id, otherAcc.name);
+    // Если это перевод, выбираем найденный второй счет, иначе просто первый попавшийся
+    const fallbackOtherAcc = accounts.find((a) => a.id !== activeAccountId) || accounts[0];
+    const finalToAccId = toAccountId || fallbackOtherAcc.id;
+    const toAccObj = accounts.find(a => a.id === finalToAccId);
+    
+    if (toAccObj) {
+      selectCustomOption('editTxToAccount', finalToAccId, toAccObj.name);
     }
   }
 
@@ -479,20 +503,28 @@ window.saveEditedTransaction = async function () {
 
   let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
 
+  // Ищем парную транзакцию (до изменений), чтобы потом её удалить/обновить
+  let oldPairId = null;
+  if (tx.isTransfer) {
+      const oldPair = transactions.find(t => t.id !== tx.id && t.description === tx.description && Math.abs(t.date - tx.date) <= 60);
+      if (oldPair) oldPairId = oldPair.id;
+  }
+
   if (txType === "transfer") {
     if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
       return alert("Выберите разные счета для перевода");
     }
-
     const rawTargetAmount = parseFloat(document.getElementById("editTxTargetAmount").value);
     if (isNaN(rawTargetAmount) || rawTargetAmount <= 0) {
       return alert("Укажите сумму зачисления");
     }
     let targetAmountInKopecks = Math.round(Math.abs(rawTargetAmount) * 100);
-
     if (!desc.startsWith("Перевод:")) desc = "Перевод: " + desc;
 
-    // 1. Обновляем текущую операцию как списание средств
+    // Удаляем старую пару (зачисление), чтобы создать чистую новую
+    if (oldPairId) await removeTransaction(oldPairId);
+
+    // 1. Обновляем текущую операцию как списание
     tx.accountId = fromAccountId;
     tx.categoryId = "cat_default";
     tx.amount = -amountInKopecks;
@@ -501,7 +533,7 @@ window.saveEditedTransaction = async function () {
     tx.userModified = true;
     await saveTransaction(tx);
 
-    // 2. Создаем парную операцию зачисления на счет-получатель
+    // 2. Создаем парную операцию зачисления
     await saveTransaction({
       id: "tx_in_" + Date.now(),
       accountId: toAccountId,
@@ -512,11 +544,13 @@ window.saveEditedTransaction = async function () {
       userModified: true,
       isTransfer: true,
     });
+
   } else {
-    // Для Дохода / Расхода
-    if (txType === "expense") {
-      amountInKopecks = -amountInKopecks;
-    }
+    // Если мы сменили тип с "Перевод" на обычный "Расход/Доход", 
+    // нам нужно удалить теперь уже ненужную парную транзакцию перевода
+    if (oldPairId) await removeTransaction(oldPairId);
+
+    if (txType === "expense") amountInKopecks = -amountInKopecks;
 
     tx.accountId = fromAccountId;
     tx.categoryId = document.getElementById("editTxCategory").value || "cat_default";
@@ -524,7 +558,6 @@ window.saveEditedTransaction = async function () {
     tx.description = desc;
     tx.isTransfer = false;
     tx.userModified = true;
-
     await saveTransaction(tx);
   }
 
@@ -533,7 +566,17 @@ window.saveEditedTransaction = async function () {
 };
 
 window.deleteTransaction = async function () {
-  await removeTransaction(document.getElementById("editTxId").value);
+  const txId = document.getElementById("editTxId").value;
+  const transactions = await getAllTransactions();
+  const tx = transactions.find((t) => t.id === txId);
+  
+  // Если удаляем перевод, нужно грохнуть и его пару!
+  if (tx && tx.isTransfer) {
+      const pairTx = transactions.find(t => t.id !== tx.id && t.description === tx.description && Math.abs(t.date - tx.date) <= 60);
+      if (pairTx) await removeTransaction(pairTx.id);
+  }
+
+  await removeTransaction(txId);
   window.closeModal("editTxModal");
   await refreshAppData();
 };
@@ -709,64 +752,121 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
   }
 };
 
-function renderTransactionsGrouped(
-  transactionsToRender,
-  containerElement,
-  accounts,
-  categories,
-) {
+function renderTransactionsGrouped(transactionsToRender, containerElement, accounts, categories) {
   if (!containerElement) return;
   containerElement.innerHTML = "";
   if (transactionsToRender.length === 0) {
-    containerElement.innerHTML =
-      '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
+    containerElement.innerHTML = '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
     return;
   }
+
   const grouped = {};
-  transactionsToRender.forEach((tx) => {
-    const dateObj = new Date(tx.date * 1000);
-    const dateStr = dateObj.toLocaleDateString("ru-RU", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-    if (!grouped[dateStr]) grouped[dateStr] = [];
-    grouped[dateStr].push(tx);
+  const processedTxIds = new Set();
+  const transferPairs = [];
+
+  // 1. Ищем парные операции переводов
+  const transfers = transactionsToRender.filter(t => t.isTransfer);
+  transfers.forEach(t1 => {
+    if (processedTxIds.has(t1.id)) return;
+    
+    // Ищем пару: тот же description, статус isTransfer и разница во времени не более 1 минуты
+    const t2 = transfers.find(t => 
+      t.id !== t1.id && 
+      !processedTxIds.has(t.id) && 
+      t.description === t1.description && 
+      Math.abs(t.date - t1.date) <= 60 
+    );
+
+    if (t2) {
+      processedTxIds.add(t1.id);
+      processedTxIds.add(t2.id);
+      const txOut = t1.amount < 0 ? t1 : t2;
+      const txIn = t1.amount > 0 ? t1 : t2;
+      transferPairs.push({ isPairedTransfer: true, txOut, txIn, date: txOut.date });
+    }
   });
-  for (const [dateStr, txs] of Object.entries(grouped)) {
+
+  // 2. Собираем обычные операции и склеенные переводы в один список
+  const allItems = [];
+  transactionsToRender.forEach(tx => {
+    if (!processedTxIds.has(tx.id)) allItems.push(tx); // Обычные транзакции
+  });
+  allItems.push(...transferPairs);
+
+  // Сортируем всё по дате (от новых к старым)
+  allItems.sort((a, b) => b.date - a.date);
+
+  // Группируем по дням для заголовков
+  allItems.forEach(item => {
+    const dateObj = new Date(item.date * 1000);
+    const dateStr = dateObj.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+    if (!grouped[dateStr]) grouped[dateStr] = [];
+    grouped[dateStr].push(item);
+  });
+
+  // 3. Рисуем интерфейс
+  for (const [dateStr, items] of Object.entries(grouped)) {
     const header = document.createElement("div");
-    header.style =
-      "font-size: 13px; color: #888; margin: 15px 0 8px 5px; font-weight: bold; text-transform: uppercase;";
+    header.style = "font-size: 13px; color: #888; margin: 15px 0 8px 5px; font-weight: bold; text-transform: uppercase;";
     header.innerText = dateStr;
     containerElement.appendChild(header);
-    txs.forEach((tx) => {
-      const acc = accounts.find((a) => a.id === tx.accountId);
-      const cat = categories.find((c) => c.id === tx.categoryId);
-      const symbol = acc
-        ? acc.currency === "USD"
-          ? "$"
-          : acc.currency === "EUR"
-            ? "€"
-            : "₴"
-        : "₴";
-      const card = document.createElement("div");
-      card.className = "tx-card";
-      card.onclick = () => openEditTransaction(tx.id);
-      const amount = tx.amount / 100;
-      const amountStr =
-        amount > 0 ? `+${amount} ${symbol}` : `${amount} ${symbol}`;
-      const colorClass = amount > 0 ? "green" : "white";
-      const timeStr = new Date(tx.date * 1000).toLocaleTimeString("ru-RU", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      card.innerHTML = `
-          <div class="tx-info">
-              <span class="tx-desc">${tx.description}</span>
-              <span class="tx-date">${cat ? cat.name : "Без категории"} • ${acc ? acc.name : ""} • ${timeStr}</span>
+
+    items.forEach(item => {
+      if (item.isPairedTransfer) {
+        // --- РЕНДЕР КАРТОЧКИ ПЕРЕВОДА (Zenmoney style) ---
+        const accOut = accounts.find(a => a.id === item.txOut.accountId);
+        const accIn = accounts.find(a => a.id === item.txIn.accountId);
+
+        const symOut = accOut ? (accOut.currency === "USD" ? "$" : accOut.currency === "EUR" ? "€" : "₴") : "₴";
+        const symIn = accIn ? (accIn.currency === "USD" ? "$" : accIn.currency === "EUR" ? "€" : "₴") : "₴";
+
+        const valOut = (item.txOut.amount / 100).toFixed(2); // с минусом
+        const valIn = (item.txIn.amount / 100).toFixed(2); // с плюсом
+
+        const card = document.createElement("div");
+        card.className = "tx-card transfer-card";
+        card.onclick = () => openEditTransaction(item.txOut.id); // Открываем редактор по ID списания
+
+        card.innerHTML = `
+          <div class="transfer-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f8fafc" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path>
+              </svg>
           </div>
-          <div class="tx-amount ${colorClass}">${amountStr}</div>`;
-      containerElement.appendChild(card);
+          <div class="transfer-info">
+              <span class="transfer-dest">${accIn ? accIn.name : "Счет удален"}</span>
+              <span class="transfer-source">${accOut ? accOut.name : "Счет удален"}</span>
+          </div>
+          <div class="transfer-amounts">
+              <span class="transfer-amount-in">${valIn} ${symIn}</span>
+              <span class="transfer-amount-out">${valOut} ${symOut}</span>
+          </div>`;
+        containerElement.appendChild(card);
+
+      } else {
+        // --- РЕНДЕР ОБЫЧНОЙ ОПЕРАЦИИ ---
+        const tx = item;
+        const acc = accounts.find((a) => a.id === tx.accountId);
+        const cat = categories.find((c) => c.id === tx.categoryId);
+        const symbol = acc ? (acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴") : "₴";
+        
+        const amount = tx.amount / 100;
+        const amountStr = amount > 0 ? `+${amount} ${symbol}` : `${amount} ${symbol}`;
+        const colorClass = amount > 0 ? "green" : "white";
+        const timeStr = new Date(tx.date * 1000).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+
+        const card = document.createElement("div");
+        card.className = "tx-card";
+        card.onclick = () => openEditTransaction(tx.id);
+
+        card.innerHTML = `
+            <div class="tx-info">
+                <span class="tx-desc">${tx.description}</span>
+                <span class="tx-date">${cat ? cat.name : "Без категории"} • ${acc ? acc.name : ""} • ${timeStr}</span>
+            </div>
+            <div class="tx-amount ${colorClass}">${amountStr}</div>`;
+        containerElement.appendChild(card);
+      }
     });
   }
 }
