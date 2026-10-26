@@ -127,8 +127,10 @@
         <button onclick="openModal('accountModal')">+ Добавить счет</button>
     </div>
 
-    <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
-    <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
+  <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
+    <div id="tab-operations" class="tab-content container">
+        <div class="section-header">Добавить операцию</div>
+        <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
             <select id="opAccountSelect"></select>
             <select id="opCategorySelect"></select>
             
@@ -148,6 +150,10 @@
             </select>
             <button id="addManualBtn">Сохранить</button>
         </div>
+        <div class="section-header">История операций</div>
+        <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
+        <div id="transactions"></div>
+    </div>
 
     <!-- ВКЛАДКА 3: АНАЛИТИКА -->
     <div id="tab-analytics" class="tab-content container">
