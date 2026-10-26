@@ -1,6 +1,6 @@
 let db;
 let exchangeRates = { USD: 41.5, EUR: 45.0 };
-
+let currentCategoryFilter = null; // ID выбранной категории для фильтрации
 const GOOGLE_CLIENT_ID =
   "890708614909-kbcj733qlet8g8kapjq0kiikvmi8rpda.apps.googleusercontent.com";
 let currentGoogleToken = localStorage.getItem("google_access_token");
@@ -23,6 +23,24 @@ const CHART_COLORS = [
   "#795548",
   "#607D8B",
 ];
+
+window.filterTransactionsByCategory = function (categoryId, categoryName) {
+  currentCategoryFilter = categoryId;
+
+  // Переключаемся на вкладку операций (3-я кнопка в навигации)
+  window.switchTab(
+    "operations",
+    document.querySelector(".nav-item:nth-child(3)"),
+  );
+
+  // Обновляем отображение списка
+  refreshAppData();
+};
+
+window.clearCategoryFilter = function () {
+  currentCategoryFilter = null;
+  refreshAppData();
+};
 
 document.addEventListener("DOMContentLoaded", async () => {
   const editAmountInput = document.getElementById("editTxAmount");
@@ -1130,7 +1148,7 @@ function initDB() {
         catStore.put({
           id: "cat_default",
           name: "Без категории",
-          type: null, // Нейтральный тип
+          type: null,
         });
       }
     };
@@ -1409,6 +1427,7 @@ async function refreshAppData() {
 
   document.getElementById("totalBalance").innerText =
     (totalGlobalBalanceUAH / 100).toFixed(2) + " ₴";
+
   // Сортируем все транзакции от новых к старым
   const allSortedTxs = transactions.sort((a, b) => b.date - a.date);
 
@@ -1416,8 +1435,25 @@ async function refreshAppData() {
   const homeTxs = allSortedTxs.slice(0, 100);
   renderTransactionsGrouped(homeTxs, homeTransactions, accounts, categories);
 
-  // Для вкладки "Операции" передаем полный список без ограничений
-  renderTransactionsGrouped(allSortedTxs, txContainer, accounts, categories);
+  // Для вкладки "Операции" с учетом фильтра по категории
+  let operationsTxs = allSortedTxs;
+  const filterBanner = document.getElementById("categoryFilterBanner");
+  const filteredNameEl = document.getElementById("filteredCategoryName");
+
+  if (currentCategoryFilter) {
+    operationsTxs = allSortedTxs.filter(
+      (tx) => tx.categoryId === currentCategoryFilter,
+    );
+    const cat = categories.find((c) => c.id === currentCategoryFilter);
+    if (filterBanner && filteredNameEl) {
+      filteredNameEl.innerText = cat ? cat.name : "Без категории";
+      filterBanner.style.display = "flex";
+    }
+  } else {
+    if (filterBanner) filterBanner.style.display = "none";
+  }
+
+  renderTransactionsGrouped(operationsTxs, txContainer, accounts, categories);
 
   const categoriesList = document.getElementById("categoriesList");
   if (categoriesList) {
@@ -1434,7 +1470,7 @@ async function refreshAppData() {
       (c) => (c.type === "expense" || !c.type) && c.id !== "cat_default",
     );
 
-    // Отрисовка системной нейтральной категории отдельно
+    // Отрисовка системной нейтральной категории
     const defaultHeader = document.createElement("div");
     defaultHeader.className = "section-header";
     defaultHeader.innerText = "⚙️ Системная категория";
@@ -1442,7 +1478,13 @@ async function refreshAppData() {
 
     const defaultCard = document.createElement("div");
     defaultCard.className = "category-card";
+    defaultCard.style.cursor = "pointer";
     defaultCard.style.borderColor = "rgba(99, 102, 241, 0.3)";
+    defaultCard.onclick = () =>
+      window.filterTransactionsByCategory(
+        defaultCategory.id,
+        defaultCategory.name,
+      );
     defaultCard.innerHTML = `
       <div class="category-info">
         <span class="category-name">${defaultCategory.name}</span>
@@ -1468,7 +1510,11 @@ async function refreshAppData() {
           usageCount > 0 ? `${usageCount} операций` : "Не используется";
         const card = document.createElement("div");
         card.className = "category-card";
-        let actionsHtml = `<button class="btn-sm" onclick="openEditCategoryModal('${cat.id}')">✏️</button><button class="btn-sm btn-danger" onclick="deleteCategory('${cat.id}')">✕</button>`;
+        card.style.cursor = "pointer";
+        card.onclick = () =>
+          window.filterTransactionsByCategory(cat.id, cat.name);
+
+        let actionsHtml = `<button class="btn-sm" onclick="event.stopPropagation(); openEditCategoryModal('${cat.id}')">✏️</button><button class="btn-sm btn-danger" onclick="event.stopPropagation(); deleteCategory('${cat.id}')">✕</button>`;
 
         card.innerHTML = `<div class="category-info"><span class="category-name">${cat.name}</span><span class="category-usage">${usageText}</span></div><div class="category-actions">${actionsHtml}</div>`;
         categoriesList.appendChild(card);
@@ -2006,7 +2052,6 @@ window.importZenmoneyCSV = async function (csvText) {
 
     const createAccObj = (accName, currency) => {
       const lower = accName.toLowerCase();
-      // Проверяем, относится ли счет к Привату
       const isPrivat =
         lower.includes("приват") ||
         lower.includes("universal") ||
@@ -2024,8 +2069,8 @@ window.importZenmoneyCSV = async function (csvText) {
         type = "cash";
         bankName = null;
       } else if (isPrivat) {
-        type = "privat"; // <--- Устанавливаем системный тип для пушей Привата
-        bankName = "privat24"; // <--- Устанавливаем правильное имя банка
+        type = "privat";
+        bankName = "privat24";
       }
 
       let icon = "💳";
@@ -2070,12 +2115,26 @@ window.importZenmoneyCSV = async function (csvText) {
   });
 
   const newTransactions = [];
+  const allAccountsArray = Array.from(accountsMap.values());
+  const fallbackAccount = allAccountsArray[0] || {
+    id: "acc_default",
+    name: "Основной счет",
+  };
 
   dataRows.forEach((row, rIdx) => {
     const outAccName = cleanAccName(row[idx.outcomeAccountName]);
     const incAccName = cleanAccName(row[idx.incomeAccountName]);
-    const outcome = parseFloat(row[idx.outcome]) || 0;
-    const income = parseFloat(row[idx.income]) || 0;
+
+    const parseAmount = (val) => {
+      if (!val) return 0;
+      const clean = String(val).replace(/\s/g, "").replace(",", ".");
+      const num = parseFloat(clean);
+      return isNaN(num) ? 0 : num;
+    };
+
+    const outcome = parseAmount(row[idx.outcome]);
+    const income = parseAmount(row[idx.income]);
+
     const catName = (row[idx.categoryName] || "").replace(/"/g, "").trim();
     const payee = (row[idx.payee] || "").replace(/"/g, "").trim();
     const comment = (row[idx.comment] || "").replace(/"/g, "").trim();
@@ -2105,60 +2164,54 @@ window.importZenmoneyCSV = async function (csvText) {
     ) {
       const transferDesc =
         desc !== "Без описания" ? "Перевод: " + desc : "Перевод";
-      const outAcc = accountsMap.get(outAccName);
-      const incAcc = accountsMap.get(incAccName);
+      const outAcc = accountsMap.get(outAccName) || fallbackAccount;
+      const incAcc = accountsMap.get(incAccName) || fallbackAccount;
 
-      if (outAcc && incAcc) {
-        newTransactions.push({
-          id: `tx_import_out_${rIdx}_${timestamp}`,
-          accountId: outAcc.id,
-          categoryId: "cat_default",
-          amount: -Math.round(outcome * 100),
-          description: transferDesc,
-          date: timestamp,
-          userModified: true,
-          isTransfer: true,
-        });
+      newTransactions.push({
+        id: `tx_import_out_${rIdx}_${timestamp}`,
+        accountId: outAcc.id,
+        categoryId: "cat_default",
+        amount: -Math.round(outcome * 100),
+        description: transferDesc,
+        date: timestamp,
+        userModified: true,
+        isTransfer: true,
+      });
 
-        newTransactions.push({
-          id: `tx_import_in_${rIdx}_${timestamp}`,
-          accountId: incAcc.id,
-          categoryId: "cat_default",
-          amount: Math.round(income * 100),
-          description: transferDesc,
-          date: timestamp,
-          userModified: true,
-          isTransfer: true,
-        });
-      }
+      newTransactions.push({
+        id: `tx_import_in_${rIdx}_${timestamp}`,
+        accountId: incAcc.id,
+        categoryId: "cat_default",
+        amount: Math.round(income * 100),
+        description: transferDesc,
+        date: timestamp,
+        userModified: true,
+        isTransfer: true,
+      });
     } else if (outcome > 0) {
-      const acc = accountsMap.get(outAccName);
-      if (acc) {
-        newTransactions.push({
-          id: `tx_import_${rIdx}_${timestamp}`,
-          accountId: acc.id,
-          categoryId: categoryId,
-          amount: -Math.round(outcome * 100),
-          description: desc,
-          date: timestamp,
-          userModified: true,
-          isTransfer: false,
-        });
-      }
+      const acc = accountsMap.get(outAccName) || fallbackAccount;
+      newTransactions.push({
+        id: `tx_import_${rIdx}_${timestamp}`,
+        accountId: acc.id,
+        categoryId: categoryId,
+        amount: -Math.round(outcome * 100),
+        description: desc,
+        date: timestamp,
+        userModified: true,
+        isTransfer: false,
+      });
     } else if (income > 0) {
-      const acc = accountsMap.get(incAccName);
-      if (acc) {
-        newTransactions.push({
-          id: `tx_import_${rIdx}_${timestamp}`,
-          accountId: acc.id,
-          categoryId: categoryId,
-          amount: Math.round(income * 100),
-          description: desc,
-          date: timestamp,
-          userModified: true,
-          isTransfer: false,
-        });
-      }
+      const acc = accountsMap.get(incAccName) || fallbackAccount;
+      newTransactions.push({
+        id: `tx_import_${rIdx}_${timestamp}`,
+        accountId: acc.id,
+        categoryId: categoryId,
+        amount: Math.round(income * 100),
+        description: desc,
+        date: timestamp,
+        userModified: true,
+        isTransfer: false,
+      });
     }
   });
 
