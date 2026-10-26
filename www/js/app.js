@@ -549,33 +549,23 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
 
     // 1. Запрашиваем актуальный баланс карты из профиля клиента
     try {
-      const clientRes = await fetch(
-        "https://api.monobank.ua/personal/client-info",
-        { headers },
-      );
+      const clientRes = await fetch("https://api.monobank.ua/personal/client-info", { headers });
       if (clientRes.ok) {
         const clientData = await clientRes.json();
-        const card =
-          clientData.accounts.find((a) => a.id === bankAccId) ||
-          clientData.accounts[0];
+        const card = clientData.accounts.find((a) => a.id === bankAccId) || clientData.accounts[0];
         if (card) {
           currentBankBalance = card.balance;
           creditLimit = card.creditLimit || 0;
         }
       }
     } catch (e) {
-      console.warn(
-        "Не удалось обновить client-info, попробуем взять баланс из выписки",
-      );
+      console.warn("Не удалось получить client-info");
     }
 
-    // 2. Запрашиваем выписку за последние 30 дней для конкретного bankAccountId
+    // 2. Запрашиваем выписку за последние 30 дней
     const to = Math.floor(Date.now() / 1000);
     const from = to - 30 * 24 * 60 * 60;
-    const stmtResponse = await fetch(
-      `https://api.monobank.ua/personal/statement/${bankAccId}/${from}/${to}`,
-      { headers },
-    );
+    const stmtResponse = await fetch(`https://api.monobank.ua/personal/statement/${bankAccId}/${from}/${to}`, { headers });
 
     if (stmtResponse.ok) {
       const data = await stmtResponse.json();
@@ -597,25 +587,55 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
         });
       }
 
-      // Если client-info не ответил, берем остаток из самой последней операции выписки
       if (currentBankBalance === null && data.length > 0) {
         currentBankBalance = data[0].balance;
       }
     }
 
-    // 3. СВЕРКА ОСТАТКА: высчитываем startBalance так, чтобы (startBalance + сумма транзакций) == реальный баланс банка
+    // Обновляем кредитный лимит счета
+    targetAcc.creditLimit = creditLimit;
+    await saveAccount(targetAcc);
+
+    // 3. СВЕРКА БАЛАНСА
     if (currentBankBalance !== null) {
       const updatedTxs = await getAllTransactions();
-      let txSum = 0;
+      let calculatedBalance = targetAcc.startBalance;
+      
       updatedTxs.forEach((tx) => {
         if (tx.accountId === accountId) {
-          txSum += tx.amount;
+          calculatedBalance += tx.amount;
         }
       });
 
-      targetAcc.startBalance = currentBankBalance - txSum;
-      targetAcc.creditLimit = creditLimit;
-      await saveAccount(targetAcc);
+      const diff = currentBankBalance - calculatedBalance;
+
+      // Если есть разница в балансе
+      if (diff !== 0) {
+        const symbol = targetAcc.currency === "USD" ? "$" : targetAcc.currency === "EUR" ? "€" : "₴";
+        const diffStr = (Math.abs(diff) / 100).toFixed(2);
+        const appBalStr = (calculatedBalance / 100).toFixed(2);
+        const bankBalStr = (currentBankBalance / 100).toFixed(2);
+
+        if (!isSilent) {
+          const confirmFix = confirm(
+            `Баланс в Монобанке (${bankBalStr} ${symbol}) не совпадает с приложением (${appBalStr} ${symbol}).\n\n` +
+            `Разница: ${diff > 0 ? "+" : "-"}${diffStr} ${symbol}.\n\n` +
+            `Создать операцию коррекции баланса?`
+          );
+
+          if (confirmFix) {
+            await saveTransaction({
+              id: "tx_adj_" + Date.now(),
+              accountId: accountId,
+              categoryId: "cat_default",
+              amount: diff,
+              description: "Коррекция баланса (Монобанк)",
+              date: Math.floor(Date.now() / 1000),
+              userModified: true,
+            });
+          }
+        }
+      }
     }
 
     if (!isSilent) setSyncStatusMsg("Синхронизация успешна!");
