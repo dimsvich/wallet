@@ -329,9 +329,11 @@
                 Подключить Google Аккаунт
             </button>
             
-            <div id="googleSyncBlocks" style="display: none; flex-direction: column; gap: 10px; margin-top: 10px;">
-                <button onclick="forceBackupToCloud()">☁️ Выгрузить данные в облако</button>
-                <button class="btn-danger" onclick="forceRestoreFromCloud()">📥 Загрузить из облака (Заменит локальные)</button>
+           <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
+        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;" onchange="handleZenmoneyImport(this)">
+        <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
+            📊 Импортировать CSV из Дзен-мани
+        </button>
             </div>
         </div>
         

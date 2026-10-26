@@ -25,34 +25,6 @@ const CHART_COLORS = [
 ];
 
 document.addEventListener("DOMContentLoaded", async () => {
-  document.addEventListener("DOMContentLoaded", () => {
-    const zenInput = document.getElementById("importZenmoneyFile");
-    if (zenInput) {
-      zenInput.addEventListener("change", function (e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        if (!confirm(`Импортировать операции из файла "${file.name}"?`)) {
-          zenInput.value = "";
-          return;
-        }
-
-        const reader = new FileReader();
-        reader.onload = async function (event) {
-          try {
-            await window.importZenmoneyCSV(event.target.result);
-            zenInput.value = "";
-          } catch (err) {
-            console.error("Ошибка импорта:", err);
-            alert("Ошибка при обработке CSV-файла Дзен-мани.");
-            zenInput.value = "";
-          }
-        };
-        reader.readAsText(file);
-      });
-    }
-  });
-
   const editAmountInput = document.getElementById("editTxAmount");
   if (editAmountInput) {
     editAmountInput.addEventListener("input", () => {
@@ -447,7 +419,6 @@ window.openEditTransaction = async function (txId) {
   if (!tx) return;
 
   document.getElementById("editTxId").value = tx.id;
-  // Убираем техническое слово "Перевод: " из поля ввода, чтобы не мозолило глаза
   document.getElementById("editTxDesc").value = tx.description.replace(
     /^Перевод:\s*/,
     "",
@@ -464,7 +435,6 @@ window.openEditTransaction = async function (txId) {
     currentType = "transfer";
     typeName = "Перевод";
 
-    // Находим пару для этого перевода
     const pairTx = transactions.find(
       (t) =>
         t.id !== tx.id &&
@@ -519,7 +489,6 @@ window.openEditTransaction = async function (txId) {
       cat ? cat.name : "Без категории",
     );
 
-    // Если это перевод, выбираем найденный второй счет, иначе просто первый попавшийся
     const fallbackOtherAcc =
       accounts.find((a) => a.id !== activeAccountId) || accounts[0];
     const finalToAccId = toAccountId || fallbackOtherAcc.id;
@@ -554,7 +523,6 @@ window.saveEditedTransaction = async function () {
 
   let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
 
-  // Ищем парную транзакцию (до изменений), чтобы потом её удалить/обновить
   let oldPairId = null;
   if (tx.isTransfer) {
     const oldPair = transactions.find(
@@ -579,10 +547,8 @@ window.saveEditedTransaction = async function () {
     let targetAmountInKopecks = Math.round(Math.abs(rawTargetAmount) * 100);
     if (!desc.startsWith("Перевод:")) desc = "Перевод: " + desc;
 
-    // Удаляем старую пару (зачисление), чтобы создать чистую новую
     if (oldPairId) await removeTransaction(oldPairId);
 
-    // 1. Обновляем текущую операцию как списание
     tx.accountId = fromAccountId;
     tx.categoryId = "cat_default";
     tx.amount = -amountInKopecks;
@@ -591,7 +557,6 @@ window.saveEditedTransaction = async function () {
     tx.userModified = true;
     await saveTransaction(tx);
 
-    // 2. Создаем парную операцию зачисления
     await saveTransaction({
       id: "tx_in_" + Date.now(),
       accountId: toAccountId,
@@ -603,8 +568,6 @@ window.saveEditedTransaction = async function () {
       isTransfer: true,
     });
   } else {
-    // Если мы сменили тип с "Перевод" на обычный "Расход/Доход",
-    // нам нужно удалить теперь уже ненужную парную транзакцию перевода
     if (oldPairId) await removeTransaction(oldPairId);
 
     if (txType === "expense") amountInKopecks = -amountInKopecks;
@@ -628,7 +591,6 @@ window.deleteTransaction = async function () {
   const transactions = await getAllTransactions();
   const tx = transactions.find((t) => t.id === txId);
 
-  // Если удаляем перевод, нужно грохнуть и его пару!
   if (tx && tx.isTransfer) {
     const pairTx = transactions.find(
       (t) =>
@@ -703,7 +665,6 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
     let currentBankBalance = null;
     let creditLimit = targetAcc.creditLimit || 0;
 
-    // 1. Запрашиваем актуальный баланс карты из профиля клиента
     try {
       const clientRes = await fetch(
         "https://api.monobank.ua/personal/client-info",
@@ -723,7 +684,6 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
       console.warn("Не удалось получить client-info");
     }
 
-    // 2. Запрашиваем выписку за последние 30 дней
     const to = Math.floor(Date.now() / 1000);
     const from = to - 30 * 24 * 60 * 60;
     const stmtResponse = await fetch(
@@ -756,11 +716,9 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
       }
     }
 
-    // Обновляем кредитный лимит счета
     targetAcc.creditLimit = creditLimit;
     await saveAccount(targetAcc);
 
-    // 3. СВЕРКА БАЛАНСА
     if (currentBankBalance !== null) {
       const updatedTxs = await getAllTransactions();
       let calculatedBalance = targetAcc.startBalance;
@@ -773,7 +731,6 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
 
       const diff = currentBankBalance - calculatedBalance;
 
-      // Если есть разница в балансе
       if (diff !== 0) {
         const symbol =
           targetAcc.currency === "USD"
@@ -833,12 +790,10 @@ function renderTransactionsGrouped(
   const processedTxIds = new Set();
   const transferPairs = [];
 
-  // 1. Ищем парные операции переводов
   const transfers = transactionsToRender.filter((t) => t.isTransfer);
   transfers.forEach((t1) => {
     if (processedTxIds.has(t1.id)) return;
 
-    // Ищем пару: тот же description, статус isTransfer и разница во времени не более 1 минуты
     const t2 = transfers.find(
       (t) =>
         t.id !== t1.id &&
@@ -861,17 +816,14 @@ function renderTransactionsGrouped(
     }
   });
 
-  // 2. Собираем обычные операции и склеенные переводы в один список
   const allItems = [];
   transactionsToRender.forEach((tx) => {
-    if (!processedTxIds.has(tx.id)) allItems.push(tx); // Обычные транзакции
+    if (!processedTxIds.has(tx.id)) allItems.push(tx);
   });
   allItems.push(...transferPairs);
 
-  // Сортируем всё по дате (от новых к старым)
   allItems.sort((a, b) => b.date - a.date);
 
-  // Группируем по дням для заголовков
   allItems.forEach((item) => {
     const dateObj = new Date(item.date * 1000);
     const dateStr = dateObj.toLocaleDateString("ru-RU", {
@@ -883,7 +835,6 @@ function renderTransactionsGrouped(
     grouped[dateStr].push(item);
   });
 
-  // 3. Рисуем интерфейс
   for (const [dateStr, items] of Object.entries(grouped)) {
     const header = document.createElement("div");
     header.style =
@@ -893,7 +844,6 @@ function renderTransactionsGrouped(
 
     items.forEach((item) => {
       if (item.isPairedTransfer) {
-        // --- РЕНДЕР КАРТОЧКИ ПЕРЕВОДА (Zenmoney style) ---
         const accOut = accounts.find((a) => a.id === item.txOut.accountId);
         const accIn = accounts.find((a) => a.id === item.txIn.accountId);
 
@@ -912,12 +862,12 @@ function renderTransactionsGrouped(
               : "₴"
           : "₴";
 
-        const valOut = (item.txOut.amount / 100).toFixed(2); // с минусом
-        const valIn = (item.txIn.amount / 100).toFixed(2); // с плюсом
+        const valOut = (item.txOut.amount / 100).toFixed(2);
+        const valIn = (item.txIn.amount / 100).toFixed(2);
 
         const card = document.createElement("div");
         card.className = "tx-card transfer-card";
-        card.onclick = () => openEditTransaction(item.txOut.id); // Открываем редактор по ID списания
+        card.onclick = () => openEditTransaction(item.txOut.id);
 
         card.innerHTML = `
           <div class="transfer-icon">
@@ -935,7 +885,6 @@ function renderTransactionsGrouped(
           </div>`;
         containerElement.appendChild(card);
       } else {
-        // --- РЕНДЕР ОБЫЧНОЙ ОПЕРАЦИИ ---
         const tx = item;
         const acc = accounts.find((a) => a.id === tx.accountId);
         const cat = categories.find((c) => c.id === tx.categoryId);
@@ -1514,7 +1463,7 @@ window.deleteAccount = async function (accountId) {
 };
 
 // ==========================================
-// ЭКСПОРТ И ИМПОРТ ДАННЫХ
+// ЭКСПОРТ И ИМПОРТ ДАННЫХ (JSON БЭКАП)
 // ==========================================
 window.exportData = async function () {
   const accounts = await getAllAccounts();
@@ -1902,48 +1851,11 @@ window.processMissedPushes = async function (jsonString) {
     console.error("❌ Ошибка обработки фоновых пушей:", e);
   }
 };
-window.updateEditTransferCalculation = async function () {
-  const type = document.getElementById("editTxType").value;
-  if (type !== "transfer") return;
 
-  const amount = parseFloat(document.getElementById("editTxAmount").value);
-  const targetInput = document.getElementById("editTxTargetAmount");
-  if (!targetInput) return;
-
-  if (isNaN(amount) || amount <= 0) {
-    targetInput.value = "";
-    return;
-  }
-
-  const fromAccId = document.getElementById("editTxAccount").value;
-  const toAccId = document.getElementById("editTxToAccount").value;
-  if (!fromAccId || !toAccId || fromAccId === toAccId) return;
-
-  const accounts = await getAllAccounts();
-  const fromAcc = accounts.find((a) => a.id === fromAccId);
-  const toAcc = accounts.find((a) => a.id === toAccId);
-  if (!fromAcc || !toAcc) return;
-
-  let targetAmount = amount;
-
-  // Если валюты счетов различаются — пересчитываем по курсу
-  if (fromAcc.currency !== toAcc.currency) {
-    let amountInUAH = amount;
-    if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
-    if (fromAcc.currency === "EUR") amountInUAH = amount * exchangeRates.EUR;
-
-    if (toAcc.currency === "USD")
-      targetAmount = amountInUAH / exchangeRates.USD;
-    else if (toAcc.currency === "EUR")
-      targetAmount = amountInUAH / exchangeRates.EUR;
-    else targetAmount = amountInUAH;
-  }
-
-  targetInput.value = targetAmount.toFixed(2);
-};
-
+// ==========================================
+// ИМПОРТ CSV ДЗЕН-МАНИ
+// ==========================================
 window.importZenmoneyCSV = async function (csvText) {
-  // Парсинг CSV с учетом кавычек и разделителя ";"
   function parseCSV(text) {
     const lines = text.split(/\r\n|\n/);
     const result = [];
@@ -1978,7 +1890,6 @@ window.importZenmoneyCSV = async function (csvText) {
   );
   const dataRows = rows.slice(1);
 
-  // Индексы колонок
   const idx = {
     date: headers.indexOf("date"),
     categoryName: headers.indexOf("categoryName"),
@@ -2001,11 +1912,8 @@ window.importZenmoneyCSV = async function (csvText) {
       .trim();
   }
 
-  // 1. Собираем уникальные счета и категории
   const accountsMap = new Map();
   const categoriesMap = new Map();
-
-  // Добавляем системную категорию
   categoriesMap.set("Без категории", "cat_default");
 
   dataRows.forEach((row) => {
@@ -2064,7 +1972,6 @@ window.importZenmoneyCSV = async function (csvText) {
     }
   });
 
-  // 2. Преобразуем строки в транзакции
   const newTransactions = [];
 
   dataRows.forEach((row, rIdx) => {
@@ -2076,7 +1983,10 @@ window.importZenmoneyCSV = async function (csvText) {
     const payee = (row[idx.payee] || "").replace(/"/g, "").trim();
     const comment = (row[idx.comment] || "").replace(/"/g, "").trim();
 
-    const createdStr = row[idx.createdDate] || row[idx.date];
+    const createdStr = (row[idx.createdDate] || row[idx.date] || "").replace(
+      " ",
+      "T",
+    );
     const timestamp =
       Math.floor(new Date(createdStr).getTime() / 1000) ||
       Math.floor(Date.now() / 1000);
@@ -2087,7 +1997,6 @@ window.importZenmoneyCSV = async function (csvText) {
     const categoryId =
       typeof catObj === "object" ? catObj.id : catObj || "cat_default";
 
-    // ПЕРЕВОД МЕЖДУ СЧЕТАМИ
     if (
       outAccName &&
       incAccName &&
@@ -2123,9 +2032,7 @@ window.importZenmoneyCSV = async function (csvText) {
           isTransfer: true,
         });
       }
-    }
-    // РАСХОД
-    else if (outcome > 0) {
+    } else if (outcome > 0) {
       const acc = accountsMap.get(outAccName);
       if (acc) {
         newTransactions.push({
@@ -2139,9 +2046,7 @@ window.importZenmoneyCSV = async function (csvText) {
           isTransfer: false,
         });
       }
-    }
-    // ДОХОД
-    else if (income > 0) {
+    } else if (income > 0) {
       const acc = accountsMap.get(incAccName);
       if (acc) {
         newTransactions.push({
@@ -2158,7 +2063,6 @@ window.importZenmoneyCSV = async function (csvText) {
     }
   });
 
-  // 3. Сохранение в IndexedDB
   const accountsToSave = Array.from(accountsMap.values());
   const categoriesToSave = Array.from(categoriesMap.values()).filter(
     (c) => typeof c === "object",
@@ -2178,8 +2082,38 @@ window.importZenmoneyCSV = async function (csvText) {
 
   tx.oncomplete = async () => {
     alert(
-      `Импорт завершен!\n\nСчетов: ${accountsToSave.length}\nКатегорий: ${categoriesToSave.length}\nОпераций: ${newTransactions.length}`,
+      `Импорт успешно завершен!\n\nЗагружено:\n• Счетов: ${accountsToSave.length}\n• Категорий: ${categoriesToSave.length}\n• Операций: ${newTransactions.length}`,
     );
     await refreshAppData();
   };
+};
+
+window.handleZenmoneyImport = function (input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  if (!confirm(`Импортировать операции из файла "${file.name}"?`)) {
+    input.value = "";
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = async function (e) {
+    try {
+      if (typeof window.importZenmoneyCSV !== "function") {
+        alert("Ошибка: функция importZenmoneyCSV не найдена в app.js!");
+        return;
+      }
+      await window.importZenmoneyCSV(e.target.result);
+      input.value = "";
+    } catch (err) {
+      console.error("Ошибка при импорте:", err);
+      alert("Ошибка при импорте: " + (err.message || err));
+      input.value = "";
+    }
+  };
+  reader.onerror = function () {
+    alert("Ошибка чтения файла на устройстве");
+  };
+  reader.readAsText(file);
 };
