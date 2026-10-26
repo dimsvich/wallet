@@ -195,7 +195,41 @@
         .legend-name { flex: 1; font-size: 14px; font-weight: 500; }
         .legend-amount { font-weight: 700; font-size: 14px; }
         .legend-percent { font-size: 12px; color: var(--text-muted); margin-left: 10px; width: 40px; text-align: right; }
+        /* Кастомный селект-бокс */
+        .custom-select-trigger {
+            width: 100%; box-sizing: border-box; padding: 14px 16px; margin-bottom: 12px;
+            border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-color); 
+            color: var(--text-main); font-size: 15px; display: flex; justify-content: space-between; 
+            align-items: center; cursor: pointer; transition: border-color 0.2s;
+        }
+        .custom-select-trigger:active { border-color: var(--primary-color); }
+        .custom-select-trigger::after {
+            content: ""; width: 8px; height: 8px; border-right: 2px solid var(--text-muted);
+            border-bottom: 2px solid var(--text-muted); transform: rotate(45deg); margin-right: 6px;
+        }
+
+        /* Выпадающее модальное окно для выбора */
+        .custom-dropdown-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 2000;
+            justify-content: flex-end; align-items: flex-end; animation: fadeIn 0.2s ease;
+        }
+        .custom-dropdown-content {
+            background: var(--surface-card); width: 100%; max-height: 70vh; border-radius: 24px 24px 0 0;
+            padding: 20px; box-sizing: border-box; overflow-y: auto; border-top: 1px solid var(--border-color);
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+        .custom-dropdown-item {
+            padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 500; color: var(--text-main);
+            margin-bottom: 8px; background: var(--bg-color); cursor: pointer; display: flex; justify-content: space-between;
+        }
+        .custom-dropdown-item:active { background: var(--primary-color); color: white; }
     </style>
+    
 </head>
 <body>
 
@@ -224,27 +258,33 @@
         <button onclick="openModal('accountModal')">+ Добавить счет</button>
     </div>
 
-  <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
+ <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
     <div id="tab-operations" class="tab-content container">
         <div class="section-header">Добавить операцию</div>
         <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
-            <select id="opAccountSelect"></select>
-            <select id="opCategorySelect"></select>
             
-            <!-- Поле для второго счета при переводе -->
-            <select id="opToAccountSelect" style="display: none;"></select>
+            <!-- СЧЕТ ОТПРАВИТЕЛЯ -->
+            <div class="custom-select-trigger" id="triggerAccount" onclick="openCustomSelect('account')">Выберите счет...</div>
+            <input type="hidden" id="opAccountSelect" value="">
+
+            <!-- КАТЕГОРИЯ -->
+            <div class="custom-select-trigger" id="triggerCategory" onclick="openCustomSelect('category')">Выберите категорию...</div>
+            <input type="hidden" id="opCategorySelect" value="">
+            
+            <!-- СЧЕТ ПОЛУЧАТЕЛЯ (для переводов) -->
+            <div class="custom-select-trigger" id="triggerToAccount" style="display: none;" onclick="openCustomSelect('toAccount')">Счет получателя...</div>
+            <input type="hidden" id="opToAccountSelect" value="">
             
             <input type="number" id="manualAmount" placeholder="Сумма (например, 500)">
             
-            <!-- НОВОЕ: Поле зачисления, появляется только при переводах -->
             <input type="number" id="transferTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
             
-            <input type="text" id="manualDesc" placeholder="Описание (напр. Супермаркет)">
-            <select id="manualType" onchange="toggleTransferFields()">
-                <option value="expense">Расход</option>
-                <option value="income">Доход</option>
-                <option value="transfer">Перевод на другой счет</option>
-            </select>
+            <input type="text" id="manualDesc" placeholder="Описание перевода (необязательно)">
+            
+            <!-- ТИП ОПЕРАЦИИ -->
+            <div class="custom-select-trigger" id="triggerManualType" onclick="openCustomSelect('manualType')">Расход</div>
+            <input type="hidden" id="manualType" value="expense">
+
             <button id="addManualBtn">Сохранить</button>
         </div>
         <div class="section-header">История операций</div>
@@ -488,6 +528,67 @@
                 desc.placeholder = 'Описание (напр. Супермаркет)';
             }
         }
+
+        let activeSelectType = null;
+        let selectDataCache = { account: [], category: [], toAccount: [], manualType: [
+            {id: 'expense', name: 'Расход'},
+            {id: 'income', name: 'Доход'},
+            {id: 'transfer', name: 'Перевод на другой счет'}
+        ]};
+
+        function openCustomSelect(type) {
+            activeSelectType = type;
+            const modal = document.getElementById('customDropdownModal');
+            const listContainer = document.getElementById('customDropdownList');
+            const titleEl = document.getElementById('customDropdownTitle');
+            listContainer.innerHTML = '';
+
+            let items = selectDataCache[type] || [];
+            if (type === 'title') titleEl.innerText = 'Выберите';
+
+            items.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'custom-dropdown-item';
+                div.innerText = item.name;
+                div.onclick = () => {
+                    selectCustomOption(type, item.id, item.name);
+                    closeCustomSelect();
+                };
+                listContainer.appendChild(div);
+            });
+
+            modal.style.display = 'flex';
+        }
+
+        function closeCustomSelect() {
+            document.getElementById('customDropdownModal').style.display = 'none';
+        }
+
+        function selectCustomOption(type, id, name) {
+            if (type === 'account') {
+                document.getElementById('opAccountSelect').value = id;
+                document.getElementById('triggerAccount').innerText = name;
+                if (window.updateTransferCalculation) window.updateTransferCalculation();
+            } else if (type === 'category') {
+                document.getElementById('opCategorySelect').value = id;
+                document.getElementById('triggerCategory').innerText = name;
+            } else if (type === 'toAccount') {
+                document.getElementById('opToAccountSelect').value = id;
+                document.getElementById('triggerToAccount').innerText = name;
+                if (window.updateTransferCalculation) window.updateTransferCalculation();
+            } else if (type === 'manualType') {
+                document.getElementById('manualType').value = id;
+                document.getElementById('triggerManualType').innerText = name;
+                toggleTransferFields();
+            }
+        }
     </script>
+    <!-- УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ КАСТОМНЫХ СПИСКОВ -->
+    <div id="customDropdownModal" class="custom-dropdown-modal" onclick="closeCustomSelect()">
+        <div class="custom-dropdown-content" onclick="event.stopPropagation()">
+            <div class="section-header" id="customDropdownTitle" style="margin-top:0;">Выберите вариант</div>
+            <div id="customDropdownList"></div>
+        </div>
+    </div>
 </body>
 </html>

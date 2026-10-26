@@ -1073,6 +1073,19 @@ async function refreshAppData() {
 
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
+  // Обновляем данные для кастомных списков
+  selectDataCache.account = accounts.map(a => ({ id: a.id, name: `${a.name} (${(a.startBalance/100).toFixed(2)} ${a.currency === 'USD' ? '$' : a.currency === 'EUR' ? '€' : '₴'})` }));
+  selectDataCache.toAccount = accounts.map(a => ({ id: a.id, name: `${a.name} (${(a.startBalance/100).toFixed(2)} ${a.currency === 'USD' ? '$' : a.currency === 'EUR' ? '€' : '₴'})` }));
+  selectDataCache.category = categories.map(c => ({ id: c.id, name: c.name }));
+
+  // Устанавливаем тексты по умолчанию для триггеров, если ничего не выбрано
+  if (accounts.length > 0 && !document.getElementById('opAccountSelect').value) {
+      selectCustomOption('account', accounts[0].id, selectDataCache.account[0].name);
+      selectCustomOption('toAccount', accounts[accounts.length > 1 ? 1 : 0].id, selectDataCache.toAccount[accounts.length > 1 ? 1 : 0].name);
+  }
+  if (categories.length > 0 && !document.getElementById('opCategorySelect').value) {
+      selectCustomOption('category', categories[0].id, categories[0].name);
+  }
   
 }
 
