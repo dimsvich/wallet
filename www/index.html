@@ -6,260 +6,174 @@
     <title>ZenLocal</title>
     <style>
         :root {
-            --bg-color: #0f1115;
-            --surface-color: #1a1d24;
-            --surface-card: #222632;
+            --bg-color: #0f172a;
+            --surface-color: #1e293b;
             --primary-color: #6366f1;
-            --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
             --text-main: #f8fafc;
             --text-muted: #94a3b8;
+            --border-color: #334155;
             --danger-color: #ef4444;
-            --success-color: #22c55e;
-            --border-color: rgba(255, 255, 255, 0.08);
+            --success-color: #10b981;
         }
-
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
             margin: 0; padding: 0;
-            padding-bottom: 80px;
-            -webkit-tap-highlight-color: transparent;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color); color: var(--text-main);
+            padding-bottom: 80px; overflow-x: hidden;
         }
-
-        .header {
-            padding: 20px;
-            background: var(--surface-color);
-            border-bottom: 1px solid var(--border-color);
-            position: sticky;
-            top: 0;
-            z-index: 50;
-            backdrop-filter: blur(10px);
-            background-color: rgba(26, 29, 36, 0.85);
-        }
-        .balance-title { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
-        .balance-amount { font-size: 32px; font-weight: 800; margin-top: 4px; letter-spacing: -0.5px; }
+        .container { padding: 15px; }
         
-        .rates-container {
-            display: flex; gap: 15px; margin-top: 12px; padding-top: 12px;
-            border-top: 1px solid var(--border-color); font-size: 12px; color: var(--text-muted);
-        }
-        .rate-item { display: flex; gap: 6px; align-items: center; }
-        .rate-val { color: var(--success-color); font-weight: 700; }
-
-        .container { padding: 20px; }
-        .section-header {
-            font-size: 12px; color: var(--text-muted); margin: 24px 0 12px 4px;
-            text-transform: uppercase; letter-spacing: 1px; font-weight: 700;
-        }
-
-        .account-card, .tx-card, .category-card {
-            background: var(--surface-card);
-            padding: 16px;
-            border-radius: 16px;
-            margin-bottom: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid var(--border-color);
-            transition: transform 0.2s ease, background-color 0.2s ease;
-        }
-        .account-card:active, .tx-card:active {
-            transform: scale(0.98);
-        }
-        .tx-card { cursor: pointer; }
-        
-        .account-info, .tx-info { display: flex; flex-direction: column; width: 65%; }
-        .account-name, .tx-desc { font-weight: 700; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .account-sub, .tx-date { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-        .account-sum, .tx-amount { font-weight: 700; font-size: 16px; text-align: right; white-space: nowrap; }
-
-        input, select {
-            width: 100%; box-sizing: border-box; padding: 14px 16px; margin-bottom: 12px;
-            border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-color); 
-            color: white; font-size: 15px; outline: none; transition: border-color 0.2s;
-        }
-        input:focus, select:focus {
-            border-color: var(--primary-color);
-        }
-        
-        button {
-            width: 100%; padding: 14px; border-radius: 12px; border: none;
-            background: var(--primary-gradient); color: white; font-size: 15px; 
-            font-weight: 700; cursor: pointer; margin-top: 6px;
-            box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-            transition: opacity 0.2s, transform 0.1s;
-        }
-        button:active { transform: scale(0.97); opacity: 0.9; }
-
-        .btn-secondary { background: #2a2f3d; box-shadow: none; color: var(--text-main); }
-        .btn-danger { background: var(--danger-color); box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); }
-        .btn-sm { padding: 6px 12px; font-size: 12px; width: auto; margin: 0; border-radius: 8px; }
-
-        .green { color: var(--success-color); }
-        .white { color: var(--text-main); }
-
         .nav-bar {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 70px;
-            background: rgba(26, 29, 36, 0.9); backdrop-filter: blur(20px);
-            border-top: 1px solid var(--border-color);
-            display: flex; justify-content: space-around; align-items: center; box-sizing: border-box;
-            z-index: 100; padding-bottom: env(safe-area-inset-bottom);
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-around;
+            padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
+            border-top: 1px solid var(--border-color); z-index: 100;
         }
         .nav-item {
-            background: none; border: none; color: var(--text-muted); font-size: 11px; font-weight: 500;
-            display: flex; flex-direction: column; align-items: center; cursor: pointer; flex: 1; padding: 0;
-            transition: color 0.2s, transform 0.2s;
-            box-shadow: none; margin: 0;
+            display: flex; flex-direction: column; align-items: center;
+            color: var(--text-muted); font-size: 11px; cursor: pointer;
+            transition: color 0.2s;
         }
-        .nav-item.active { color: var(--primary-color); transform: translateY(-2px); }
-        .nav-icon { font-size: 20px; margin-bottom: 3px; }
+        .nav-item.active { color: var(--primary-color); }
+        .nav-icon { font-size: 24px; margin-bottom: 4px; }
+        
+        .tab-content { display: none; animation: fadeIn 0.3s ease; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
-        .tab-content.active { display: block; opacity: 1; animation: fadeIn 0.3s ease forwards; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(6px); }
-            to { opacity: 1; transform: translateY(0); }
+        .section-header { font-size: 18px; font-weight: 700; margin: 20px 0 15px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .account-card, .account-swipe-container, .category-card, .tx-card {
+            background: var(--surface-color); border: 1px solid var(--border-color);
+            border-radius: 16px; padding: 16px; margin-bottom: 12px;
+            display: flex; justify-content: space-between; align-items: center;
         }
+        .account-name { font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .account-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; display: block; }
+        .account-sum { font-size: 18px; font-weight: 700; text-align: right; }
+        
+        .tx-info { display: flex; flex-direction: column; gap: 4px; }
+        .tx-desc { font-size: 15px; font-weight: 500; }
+        .tx-date { font-size: 12px; color: var(--text-muted); }
+        .tx-amount { font-size: 16px; font-weight: 700; }
+        .tx-amount.green { color: var(--success-color); }
+        
+        input, select, button {
+            width: 100%; padding: 14px; border-radius: 12px;
+            border: 1px solid var(--border-color); background: var(--bg-color);
+            color: var(--text-main); font-size: 16px; margin-bottom: 15px; outline: none;
+        }
+        button {
+            background: var(--primary-color); color: white; font-weight: 600;
+            border: none; cursor: pointer; transition: opacity 0.2s;
+        }
+        button:active { opacity: 0.8; }
+        .btn-secondary { background: var(--surface-color); border: 1px solid var(--border-color); }
+        .btn-danger { background: var(--danger-color); }
+        .btn-sm { padding: 8px 12px; font-size: 14px; width: auto; margin: 0; }
 
         .modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
-            justify-content: center; align-items: center; z-index: 1000;
-            animation: fadeInModal 0.2s ease;
-        }
-        @keyframes fadeInModal {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 1000;
+            justify-content: center; align-items: flex-end;
+            backdrop-filter: blur(5px);
         }
         .modal-content {
-            background: var(--surface-card); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; 
-            box-sizing: border-box; border: 1px solid var(--border-color);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-            max-height: 90vh; overflow-y: auto;
-        }
-
-        .category-card { margin-bottom: 10px; }
-        .category-info { display: flex; flex-direction: column; flex: 1; }
-        .category-name { font-weight: 700; font-size: 15px; }
-        .category-usage { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-        .category-actions { display: flex; gap: 8px; }
-
-        .legend-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
-        .legend-color { width: 10px; height: 10px; border-radius: 50%; margin-right: 12px; }
-        .legend-name { flex: 1; font-size: 14px; font-weight: 500; }
-        .legend-amount { font-weight: 700; font-size: 14px; }
-        .legend-percent { font-size: 12px; color: var(--text-muted); margin-left: 10px; width: 40px; text-align: right; }
-
-        .custom-select-trigger {
-            width: 100%; box-sizing: border-box; padding: 14px 16px; margin-bottom: 12px;
-            border-radius: 12px; border: 1px solid var(--border-color); background: var(--bg-color); 
-            color: var(--text-main); font-size: 15px; display: flex; justify-content: space-between; 
-            align-items: center; cursor: pointer; transition: border-color 0.2s;
-        }
-        .custom-select-trigger:active { border-color: var(--primary-color); }
-        .custom-select-trigger::after {
-            content: ""; width: 8px; height: 8px; border-right: 2px solid var(--text-muted);
-            border-bottom: 2px solid var(--text-muted); transform: rotate(45deg); margin-right: 6px;
-        }
-
-        .custom-dropdown-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px); z-index: 2000;
-            justify-content: flex-end; align-items: flex-end; animation: fadeIn 0.2s ease;
-        }
-        .custom-dropdown-content {
-            background: var(--surface-card); width: 100%; max-height: 70vh; border-radius: 24px 24px 0 0;
-            padding: 20px; box-sizing: border-box; overflow-y: auto; border-top: 1px solid var(--border-color);
+            background: var(--surface-color); width: 100%; max-height: 90vh;
+            border-radius: 24px 24px 0 0; padding: 24px; overflow-y: auto;
             animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        @keyframes slideUp {
-            from { transform: translateY(100%); }
-            to { transform: translateY(0); }
-        }
-        .custom-dropdown-item {
-            padding: 16px; border-radius: 12px; font-size: 16px; font-weight: 500; color: var(--text-main);
-            margin-bottom: 8px; background: var(--bg-color); cursor: pointer; display: flex; justify-content: space-between;
-        }
-        .custom-dropdown-item:active { background: var(--primary-color); color: white; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
-        .account-swipe-container {
-            position: relative;
-            margin-bottom: 12px;
-            border-radius: 16px;
-            overflow: hidden;
-            background: #151821;
-            border: 1px solid var(--border-color);
+        .custom-select-trigger {
+            width: 100%; padding: 14px; border-radius: 12px;
+            border: 1px solid var(--border-color); background: var(--bg-color);
+            color: var(--text-main); font-size: 16px; margin-bottom: 15px;
+            text-align: left; cursor: pointer; position: relative;
         }
-        .account-swipe-actions {
-            position: absolute;
-            top: 0; right: 0; bottom: 0;
-            display: flex; align-items: center; gap: 6px; padding-right: 12px;
-            z-index: 1;
+        .custom-select-trigger::after {
+            content: '▼'; position: absolute; right: 15px; top: 50%;
+            transform: translateY(-50%); font-size: 12px; color: var(--text-muted);
         }
-        .swipe-action-btn {
-            background: var(--surface-card); border: none; color: white;
-            font-size: 16px; width: 44px; height: 44px; border-radius: 12px;
-            display: flex; justify-content: center; align-items: center;
-            cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        #customSelectModal .modal-content { padding: 0; border-radius: 16px 16px 0 0; }
+        .custom-option {
+            padding: 16px 20px; border-bottom: 1px solid var(--border-color);
+            font-size: 16px; cursor: pointer;
         }
-        .swipe-edit { background: #3b82f6; }
-        .swipe-sync { background: #ff5722; }
-        .swipe-delete { background: var(--danger-color); }
+        .custom-option:active { background: var(--border-color); }
+        
+        .transfer-card { border-left: 4px solid #607d8b; padding-left: 12px; }
+        .transfer-icon { width: 32px; height: 32px; background: #607d8b; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .transfer-info { display: flex; flex-direction: column; flex-grow: 1; margin: 0 12px; }
+        .transfer-source { font-size: 12px; color: #888; text-decoration: line-through; }
+        .transfer-dest { font-size: 15px; font-weight: bold; }
+        .transfer-amounts { display: flex; flex-direction: column; align-items: flex-end; }
+        .transfer-amount-out { font-size: 12px; color: #888; }
+        .transfer-amount-in { font-size: 15px; font-weight: bold; color: white; }
 
-        .account-card-front {
-            position: relative;
-            z-index: 2;
-            background: var(--surface-card);
-            padding: 16px;
-            display: flex; justify-content: space-between; align-items: center;
-            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            cursor: grab; margin-bottom: 0 !important; border: none !important;
-        }
-        .transfer-card { cursor: pointer; }
-        .transfer-icon {
-            width: 36px; height: 36px; border-radius: 50%;
-            background: #2a2f3d; display: flex; justify-content: center; 
-            align-items: center; margin-right: 14px; flex-shrink: 0;
-        }
-        .transfer-info { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .transfer-dest { font-weight: 600; font-size: 16px; color: var(--text-main); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .transfer-source { font-size: 13px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .transfer-amounts { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; margin-left: 10px; }
-        .transfer-amount-in { font-weight: 600; font-size: 15px; color: var(--text-main); margin-bottom: 3px; }
-        .transfer-amount-out { font-size: 13px; color: var(--text-muted); }
+        .legend-item { display: flex; align-items: center; margin-bottom: 8px; font-size: 14px; }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; }
+        .legend-name { flex-grow: 1; }
+        .legend-amount { font-weight: bold; margin-right: 10px; }
+        .legend-percent { color: var(--text-muted); width: 40px; text-align: right; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <div class="balance-title">Общий баланс (в гривне)</div>
-        <div class="balance-amount" id="totalBalance">0.00 ₴</div>
-        <div class="rates-container">
-            <div class="rate-item">USD: <span id="rateUsd" class="rate-val">-</span></div>
-            <div class="rate-item">EUR: <span id="rateEur" class="rate-val">-</span></div>
+    <div class="nav-bar">
+        <div class="nav-item active" onclick="switchTab('home', this)">
+            <div class="nav-icon">🏠</div> Главная
+        </div>
+        <div class="nav-item" onclick="switchTab('categories', this)">
+            <div class="nav-icon">📁</div> Категории
+        </div>
+        <div class="nav-item" onclick="switchTab('operations', this)">
+            <div class="nav-icon">📋</div> Операции
+        </div>
+        <div class="nav-item" onclick="switchTab('analytics', this)">
+            <div class="nav-icon">📊</div> Аналитика
+        </div>
+        <div class="nav-item" onclick="switchTab('settings', this)">
+            <div class="nav-icon">⚙️</div> Настройки
         </div>
     </div>
 
-    <!-- ВКЛАДКА 0: ГЛАВНАЯ -->
+    <!-- ВКЛАДКА 1: ГЛАВНАЯ -->
     <div id="tab-home" class="tab-content active container">
-        <div id="homeStatus" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
+        <div style="text-align: center; margin: 10px 0 25px;">
+            <div style="font-size: 14px; color: var(--text-muted);">Общий баланс</div>
+            <div id="totalBalance" style="font-size: 36px; font-weight: 800; margin-top: 5px;">0.00 ₴</div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+            <button onclick="openModal('accountModal')" class="btn-secondary" style="margin:0; font-size:14px; padding:10px;">+ Счет</button>
+        </div>
+
         <div id="homeAccountsList"></div>
-        <div class="section-header">Последние операции</div>
+
+        <div class="section-header">
+            Последние операции
+            <button class="btn-sm btn-secondary" onclick="switchTab('operations', document.querySelectorAll('.nav-item')[2])">Все</button>
+        </div>
         <div id="homeTransactions"></div>
     </div>
 
-    <!-- ВКЛАДКА 1: СЧЕТА -->
-    <div id="tab-accounts" class="tab-content container">
-        <div id="accountsList"></div>
-        <button onclick="openModal('accountModal')">+ Добавить счет</button>
+    <!-- ВКЛАДКА 2: КАТЕГОРИИ -->
+    <div id="tab-categories" class="tab-content container">
+        <div class="section-header">
+            Категории
+            <button class="btn-sm btn-secondary" onclick="openModal('categoryModal')">+ Создать</button>
+        </div>
+        <div id="categoriesList"></div>
     </div>
 
-    <!-- ВКЛАДКА 2: ОПЕРАЦИИ -->
+    <!-- ВКЛАДКА 3: ОПЕРАЦИИ -->
     <div id="tab-operations" class="tab-content container">
         <div class="section-header">Добавить операцию</div>
-        <!-- Индикатор активного фильтра по категории -->
+        
+        <!-- Индикатор фильтра -->
         <div id="categoryFilterBanner" style="display: none; background: rgba(99, 102, 241, 0.15); border: 1px solid var(--primary-color); padding: 12px 16px; border-radius: 12px; margin-bottom: 15px; justify-content: space-between; align-items: center;">
             <div>
                 <span style="font-size: 12px; color: var(--text-muted); display: block;">Фильтр по категории:</span>
@@ -267,155 +181,131 @@
             </div>
             <button class="btn-sm btn-secondary" onclick="clearCategoryFilter()" style="margin: 0; width: auto;">✕ Сбросить</button>
         </div>
-        <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
-            <div class="custom-select-trigger" id="triggerAccount" onclick="openCustomSelect('account')">Выберите счет...</div>
-            <input type="hidden" id="opAccountSelect" value="">
 
-            <div class="custom-select-trigger" id="triggerCategory" onclick="openCustomSelect('category')">Выберите категорию...</div>
-            <input type="hidden" id="opCategorySelect" value="">
-            
-            <div class="custom-select-trigger" id="triggerToAccount" style="display: none;" onclick="openCustomSelect('toAccount')">Счет получателя...</div>
-            <input type="hidden" id="opToAccountSelect" value="">
-            
-            <input type="number" id="manualAmount" placeholder="Сумма (например, 500)">
-            <input type="number" id="transferTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
-            <input type="text" id="manualDesc" placeholder="Описание (напр. Супермаркет)">
-            
-            <div class="custom-select-trigger" id="triggerManualType" onclick="openCustomSelect('manualType')">Расход</div>
+        <div style="background: var(--surface-color); padding: 15px; border-radius: 16px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <button type="button" class="type-btn active" id="btnTypeExpense" onclick="setOpType('expense')" style="margin:0; padding:10px; background:var(--danger-color);">Расход</button>
+                <button type="button" class="type-btn" id="btnTypeIncome" onclick="setOpType('income')" style="margin:0; padding:10px; background:var(--surface-color); border:1px solid var(--border-color);">Доход</button>
+                <button type="button" class="type-btn" id="btnTypeTransfer" onclick="setOpType('transfer')" style="margin:0; padding:10px; background:var(--surface-color); border:1px solid var(--border-color);">Перевод</button>
+            </div>
             <input type="hidden" id="manualType" value="expense">
 
-            <button id="addManualBtn">Сохранить</button>
+            <div class="custom-select-trigger" id="triggerOpAccount" onclick="openCustomSelect('account')">Счет списания</div>
+            <input type="hidden" id="opAccountSelect">
+
+            <div id="transferTargetBlock" style="display: none;">
+                <div style="text-align: center; color: var(--text-muted); margin-bottom: 15px;">⬇️</div>
+                <div class="custom-select-trigger" id="triggerOpToAccount" onclick="openCustomSelect('toAccount')">Счет зачисления</div>
+                <input type="hidden" id="opToAccountSelect">
+            </div>
+
+            <div class="custom-select-trigger" id="triggerOpCategory" onclick="openCustomSelect('category')">Без категории</div>
+            <input type="hidden" id="opCategorySelect" value="cat_default">
+
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="manualAmount" placeholder="Сумма" step="0.01" style="flex: 1;">
+                <input type="number" id="transferTargetAmount" placeholder="Сумма зачисления" step="0.01" style="flex: 1; display: none;">
+            </div>
+            <input type="text" id="manualDesc" placeholder="Комментарий (необязательно)">
+            <button id="addManualBtn">Сохранить операцию</button>
         </div>
-        <div class="section-header">История операций</div>
-        <div id="status" style="font-size: 13px; color: #888; margin-bottom: 10px;"></div>
+        
         <div id="transactions"></div>
     </div>
 
-    <!-- ВКЛАДКА 3: АНАЛИТИКА -->
+    <!-- ВКЛАДКА 4: АНАЛИТИКА -->
     <div id="tab-analytics" class="tab-content container">
         <div class="section-header">Аналитика</div>
-        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
-            <select id="analyticsMonth" onchange="renderAnalytics()"></select>
-            <select id="analyticsType" onchange="renderAnalytics()">
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <select id="analyticsMonth" onchange="renderAnalytics()" style="margin:0; flex:1; padding:10px; background:var(--surface-color);"></select>
+            <select id="analyticsType" onchange="renderAnalytics()" style="margin:0; flex:1; padding:10px; background:var(--surface-color);">
                 <option value="expense">Расходы</option>
                 <option value="income">Доходы</option>
             </select>
         </div>
-        
-        <div style="display: flex; justify-content: center; margin-bottom: 20px;">
-            <canvas id="analyticsChart" width="240" height="240"></canvas>
-        </div>
-        
+        <canvas id="analyticsChart" width="300" height="300" style="display: block; margin: 0 auto 20px; max-width: 100%;"></canvas>
         <div id="analyticsLegend"></div>
-    </div>
-
-    <!-- ВКЛАДКА 4: КАТЕГОРИИ -->
-    <div id="tab-categories" class="tab-content container">
-        <div class="section-header">Добавить категорию</div>
-        <div class="account-card" style="flex-direction: column; align-items: stretch; margin-bottom: 20px;">
-            <input type="text" id="newCatName" placeholder="Название категории">
-            
-            <div class="custom-select-trigger" id="triggerNewCatType" onclick="openCustomSelect('catType')">Расход</div>
-            <input type="hidden" id="newCatType" value="expense">
-
-            <button onclick="createCategory()">Создать категорию</button>
-        </div>
-
-        <div id="categoriesList"></div>
     </div>
 
     <!-- ВКЛАДКА 5: НАСТРОЙКИ -->
     <div id="tab-settings" class="tab-content container">
-        <div class="section-header">Синхронизация Google Drive</div>
+        <div class="section-header">Настройки и Синхронизация</div>
         
-        <div class="account-card" style="flex-direction: column; align-items: stretch; gap: 10px;">
-            <div id="googleStatus" style="font-size: 13px; color: #888; text-align: center; margin-bottom: 10px;">
-                Аккаунт не подключен
-            </div>
-            
-            <button id="btnGoogleConnect" onclick="connectGoogleAccount()" style="background: #4285F4;">
-                Подключить Google Аккаунт
-            </button>
-            
-            <div id="googleSyncBlocks" style="display: none; gap: 8px;">
-                <button class="btn-secondary" onclick="forceBackupToCloud()">Выгрузить в облако</button>
-                <button class="btn-secondary" onclick="forceRestoreFromCloud()">Восстановить из облака</button>
+        <div style="background: var(--surface-color); padding: 20px; border-radius: 16px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">Резервное копирование</h3>
+            <button onclick="exportData()">💾 Сохранить бэкап (JSON)</button>
+            <div style="position: relative; margin-bottom: 15px;">
+                <button class="btn-secondary">📂 Загрузить бэкап</button>
+                <input type="file" id="importFile" accept=".json" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
             </div>
         </div>
-        
-        <div class="section-header" style="margin-top: 20px;">Резервная копия (Файл)</div>
-        <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа в файл</button>
-        <input type="file" id="importFile" accept=".json" style="display: none;">
-        <button class="btn-secondary" style="margin-top: 8px;" onclick="document.getElementById('importFile').click()">Импорт бэкапа из файла</button>
 
-        <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
-        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;" onchange="handleZenmoneyImport(this)">
-        <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
-            📊 Импортировать CSV из Дзен-мани
-        </button>
+        <div style="background: var(--surface-color); padding: 20px; border-radius: 16px; border: 1px solid var(--border-color); margin-bottom: 20px;">
+            <h3 style="margin-top: 0;">Импорт Дзен-мани</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px;">Экспортируйте операции из Дзен-мани (CSV) и загрузите их сюда.</p>
+            <div style="position: relative;">
+                <button class="btn-secondary" style="border-color: #4CAF50; color: #4CAF50;">📥 Выбрать CSV файл</button>
+                <input type="file" accept=".csv" onchange="handleZenmoneyImport(this)" style="position:absolute; inset:0; opacity:0; cursor:pointer;">
+            </div>
+        </div>
+
+        <div style="background: var(--surface-color); padding: 20px; border-radius: 16px; border: 1px solid var(--border-color);">
+            <h3 style="margin-top: 0;">Курсы валют</h3>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <span>USD</span><span id="rateUsd" style="font-weight: bold;">-</span>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <span>EUR</span><span id="rateEur" style="font-weight: bold;">-</span>
+            </div>
+        </div>
     </div>
 
-    <!-- МОДАЛЬНЫЕ ОКНА -->
+    <!-- МОДАЛКА: НОВЫЙ СЧЕТ -->
     <div id="accountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Добавить счет</div>
             
-            <div style="margin-bottom: 12px;">
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка счета</label>
-                <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="accIconPicker">
-                    <button type="button" class="icon-chip active" onclick="selectAccIcon('💳', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💳</button>
-                    <button type="button" class="icon-chip" onclick="selectAccIcon('💵', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💵</button>
-                    <button type="button" class="icon-chip" onclick="selectAccIcon('🐖', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🐖</button>
-                    <button type="button" class="icon-chip" onclick="selectAccIcon('💎', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💎</button>
-                    <button type="button" class="icon-chip" onclick="selectAccIcon('🛡️', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">🛡️</button>
-                    <button type="button" class="icon-chip" onclick="selectAccIcon('💼', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💼</button>
-                </div>
-                <input type="hidden" id="accIcon" value="💳">
-            </div>
-
-            <input type="text" id="accName" placeholder="Название счета">
-            
             <div class="custom-select-trigger" id="triggerAccType" onclick="openCustomSelect('accType')">Наличные / Обычный</div>
             <input type="hidden" id="accType" value="cash">
-            
-            <div id="cashFields">
-                <input type="number" id="accStartBalance" placeholder="Стартовый баланс">
+
+            <div id="monoTokenContainer" style="display: none;">
+                <input type="text" id="bankToken" placeholder="X-Token (из api.monobank.ua)">
+                <button onclick="loadMonoAccountsList()" class="btn-secondary">Загрузить карты</button>
                 
-                <div class="custom-select-trigger" id="triggerAccCurrency" onclick="openCustomSelect('accCurrency')">Гривна (₴)</div>
-                <input type="hidden" id="accCurrency" value="UAH">
-            </div>
-            
-            <div id="bankFields" style="display: none;">
-                <input type="text" id="bankToken" placeholder="Токен Монобанка (X-Token)">
-                <button class="btn-secondary btn-sm" style="margin-bottom: 10px; width: 100%;" onclick="loadMonoAccountsList()">Получить список карт</button>
-                <div id="monoCardsContainer" style="display: none; margin-bottom: 10px;">
-                    <label style="font-size: 12px; color: #888;">Выберите карту из Монобанка:</label>
+                <div id="monoCardsContainer" style="display: none;">
                     <div class="custom-select-trigger" id="triggerMonoCard" onclick="openCustomSelect('monoCard')">Выберите карту...</div>
-                    <input type="hidden" id="monoCardSelect" value="">
+                    <input type="hidden" id="monoCardSelect">
                 </div>
             </div>
 
-            <div id="privatFields" style="display: none; margin-top: 10px;">
-                <input type="text" id="privatCardMask" placeholder="Маска карты (например, 5*58)">
-                <small style="color: #888; font-size: 11px; display:block; margin-top:3px;">Оставьте пустым для приема пушей с любых карт Приват24.</small>
+            <div id="privatMaskContainer" style="display: none;">
+                <label style="font-size: 12px; color: var(--text-muted); display:block; margin-bottom:4px;">Маска карты Приват (последние 4 цифры):</label>
+                <input type="text" id="privatCardMask" placeholder="Например: 1234">
+            </div>
+
+            <div id="manualAccFields">
+                <input type="text" id="accName" placeholder="Название счета">
+                <input type="number" id="accStartBalance" placeholder="Начальный баланс" step="0.01">
+                <div class="custom-select-trigger" id="triggerAccCurrency" onclick="openCustomSelect('accCurrency')">Гривна (UAH)</div>
+                <input type="hidden" id="accCurrency" value="UAH">
             </div>
 
             <div style="margin: 15px 0;">
                 <label style="font-size: 14px; color: #ccc; display: flex; align-items: center; gap: 8px;">
                     <input type="checkbox" id="accIsSavings" style="width: auto; margin: 0;"> 
-                    Накопительный счет (не плюсовать к общему балансу)
+                    Накопительный счет (сейф)
                 </label>
             </div>
-            <button onclick="createAccount()">Создать счет</button>
+
+            <button onclick="createAccount()">Создать</button>
             <button class="btn-secondary" onclick="closeModal('accountModal')">Отмена</button>
         </div>
     </div>
 
-<!-- Модальное окно редактирования счета -->
+    <!-- МОДАЛКА: РЕДАКТИРОВАНИЕ СЧЕТА -->
     <div id="editAccountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
-            
             <input type="hidden" id="editAccId">
             
             <div style="margin-bottom: 12px;">
@@ -431,22 +321,24 @@
                 <input type="hidden" id="editAccIconVal" value="💳">
             </div>
 
-           <input type="text" id="editAccName" placeholder="Название счета">
+            <input type="text" id="editAccName" placeholder="Название счета">
             
-            <!-- Поле для принудительной установки актуального баланса -->
-            <div style="margin-top: 10px;">
+            <div style="margin-top: 10px; margin-bottom: 15px;">
                 <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Актуальный баланс:</label>
-                <input type="number" step="0.01" id="editAccActualBalance" placeholder="0.00">
+                <input type="number" step="0.01" id="editAccActualBalance" placeholder="0.00" style="margin-bottom: 0;">
             </div>
             
-            <!-- Выбор типа счета при редактировании -->
             <div class="custom-select-trigger" id="triggerEditAccType" onclick="openCustomSelect('editAccType')">Наличные / Обычный</div>
             <input type="hidden" id="editAccType" value="cash">
 
-            <!-- Поле токена Монобанка (отображается только для типа bank) -->
             <div id="editMonoTokenContainer" style="display: none; margin-top: 10px;">
-                <label style="font-size: 12px; color: #888; display:block; margin-bottom:4px;">Токен Монобанка (X-Token):</label>
+                <label style="font-size: 12px; color: var(--text-muted); display:block; margin-bottom:4px;">Токен Монобанка (X-Token):</label>
                 <input type="text" id="editAccToken" placeholder="Введите токен для синхронизации">
+            </div>
+
+            <div id="editPrivatMaskContainer" style="display: none; margin-top: 10px;">
+                <label style="font-size: 12px; color: var(--text-muted); display:block; margin-bottom:4px;">Маска карты Приват (последние 4 цифры):</label>
+                <input type="text" id="editPrivatCardMask" placeholder="Например: 1234">
             </div>
 
             <div style="margin: 15px 0;">
@@ -460,188 +352,74 @@
             <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
         </div>
     </div>
+
+    <!-- МОДАЛКА: КАТЕГОРИЯ -->
+    <div id="categoryModal" class="modal">
+        <div class="modal-content">
+            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Категория</div>
+            <input type="hidden" id="editCategoryId">
+            <input type="text" id="categoryNameInput" placeholder="Название категории">
+            <div class="custom-select-trigger" id="triggerEditCatType" onclick="openCustomSelect('editCatType')">Расход</div>
+            <input type="hidden" id="categoryTypeInput" value="expense">
+            <button onclick="saveNewCategory()">Сохранить</button>
+            <button class="btn-secondary" onclick="closeModal('categoryModal')">Отмена</button>
+        </div>
+    </div>
+
+    <!-- МОДАЛКА: РЕДАКТИРОВАНИЕ ОПЕРАЦИИ -->
     <div id="editTxModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
             <input type="hidden" id="editTxId">
             
-            <div class="custom-select-trigger" id="triggerEditTxType" onclick="openCustomSelect('editTxType')">Тип операции...</div>
+            <div class="custom-select-trigger" id="triggerEditTxType" onclick="openCustomSelect('editTxType')">Расход</div>
             <input type="hidden" id="editTxType" value="expense">
 
-            <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет...</div>
-            <input type="hidden" id="editTxAccount" value="">
+            <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет списания</div>
+            <input type="hidden" id="editTxAccount">
 
-            <div class="custom-select-trigger" id="triggerEditTxToAccount" style="display: none;" onclick="openCustomSelect('editTxToAccount')">Счет получателя...</div>
-            <input type="hidden" id="editTxToAccount" value="">
+            <div id="editTransferTargetBlock" style="display: none;">
+                <div style="text-align: center; color: var(--text-muted); margin-bottom: 15px;">⬇️</div>
+                <div class="custom-select-trigger" id="triggerEditTxToAccount" onclick="openCustomSelect('editTxToAccount')">Счет зачисления</div>
+                <input type="hidden" id="editTxToAccount">
+            </div>
 
-            <div class="custom-select-trigger" id="triggerEditTxCategory" onclick="openCustomSelect('editTxCategory')">Категория...</div>
-            <input type="hidden" id="editTxCategory" value="">
+            <div class="custom-select-trigger" id="triggerEditTxCategory" onclick="openCustomSelect('editTxCategory')">Категория</div>
+            <input type="hidden" id="editTxCategory">
 
-            <input type="number" id="editTxAmount" placeholder="Сумма списания">
-            <input type="number" id="editTxTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
-
-            <input type="text" id="editTxDesc" placeholder="Описание">
-
-            <button onclick="saveEditedTransaction()">Сохранить изменения</button>
-            <button class="btn-danger" onclick="deleteTransaction()">Удалить операцию</button>
-            <button class="btn-secondary" onclick="closeModal('editTxModal')">Отмена</button>
-        </div>
-    </div>
-
-    <div id="adjustModal" class="modal">
-        <div class="modal-content">
-            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Сверка баланса</div>
-            <input type="hidden" id="adjustAccId">
-            <input type="number" id="adjustRealAmount" placeholder="Реальный баланс">
-            <button onclick="saveBalanceAdjustment()">Сохранить</button>
-            <button class="btn-secondary" onclick="closeModal('adjustModal')">Отмена</button>
-        </div>
-    </div>
-
-    <div id="categoryModal" class="modal">
-        <div class="modal-content">
-            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;" id="categoryModalTitle">Редактировать категорию</div>
-            <input type="hidden" id="editCategoryId">
-            <input type="text" id="categoryNameInput" placeholder="Название категории">
+            <div style="display: flex; gap: 10px;">
+                <input type="number" id="editTxAmount" placeholder="Сумма" step="0.01" style="flex: 1;">
+                <input type="number" id="editTxTargetAmount" placeholder="Сумма зачисления" step="0.01" style="flex: 1; display: none;">
+            </div>
             
-            <div class="custom-select-trigger" id="triggerEditCatType" onclick="openCustomSelect('editCatType')">Тип категории...</div>
-            <input type="hidden" id="categoryTypeInput" value="expense">
-
-            <button id="saveCategoryBtn" onclick="saveNewCategory()">Сохранить</button>
-            <button class="btn-secondary" onclick="closeModal('categoryModal')">Отмена</button>
+            <input type="text" id="editTxDesc" placeholder="Комментарий">
+            
+            <button onclick="saveEditedTransaction()">Сохранить</button>
+            <button class="btn-danger" onclick="deleteTransaction()" style="margin-top:10px;">Удалить операцию</button>
+            <button class="btn-secondary" onclick="closeModal('editTxModal')" style="margin-top:10px;">Отмена</button>
         </div>
     </div>
 
-    <div id="customDropdownModal" class="custom-dropdown-modal" onclick="closeCustomSelect()">
-        <div class="custom-dropdown-content" onclick="event.stopPropagation()">
-            <div class="section-header" id="customDropdownTitle" style="margin-top:0;">Выберите вариант</div>
-            <div id="customDropdownList"></div>
+    <!-- КАСТОМНЫЙ SELECT MODAL -->
+    <div id="customSelectModal" class="modal">
+        <div class="modal-content" style="max-height: 70vh; overflow-y: auto;">
+            <div id="customSelectOptions"></div>
         </div>
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ НАВИГАЦИИ -->
-    <nav class="nav-bar">
-        <button class="nav-item active" onclick="switchTab('home', this)"><span class="nav-icon">🏠</span>Главная</button>
-        <button class="nav-item" onclick="switchTab('accounts', this)"><span class="nav-icon">💳</span>Счета</button>
-        <button class="nav-item" onclick="switchTab('operations', this)"><span class="nav-icon">📑</span>Операции</button>
-        <button class="nav-item" onclick="switchTab('analytics', this)"><span class="nav-icon">📊</span>Аналитика</button>
-        <button class="nav-item" onclick="switchTab('categories', this)"><span class="nav-icon">📂</span>Категории</button>
-        <button class="nav-item" onclick="switchTab('settings', this)"><span class="nav-icon">⚙️</span>Еще</button>
-    </nav>
-
-    <!-- СКРИПТЫ -->
-    <script src="js/bank-notify-parser.js"></script>
-    <script src="js/app.js"></script>
+    <!-- СКРИПТЫ UI -->
     <script>
-        const tabsOrder = ['home', 'accounts', 'operations', 'analytics', 'categories', 'settings'];
-
-        function changeTabRelative(direction) {
-            const activeTabContent = document.querySelector('.tab-content.active');
-            if (!activeTabContent) return;
-            const currentId = activeTabContent.id.replace('tab-', '');
-            let currentIndex = tabsOrder.indexOf(currentId);
-            
-            let newIndex = currentIndex + direction;
-            if (newIndex >= 0 && newIndex < tabsOrder.length) {
-                switchTab(tabsOrder[newIndex], null);
-            }
-        }
-
-        let touchStartX = null;
-        document.addEventListener('touchstart', e => {
-            if (e.target.closest('.account-card-front') || e.target.closest('.modal') || e.target.closest('.custom-dropdown-content')) {
-                touchStartX = null; 
-                return;
-            }
-            touchStartX = e.changedTouches[0].screenX;
-        }, {passive: false});
-
-        document.addEventListener('touchend', e => {
-            if (touchStartX === null) return;
-            const touchEndX = e.changedTouches[0].screenX;
-            const threshold = 70;
-            if (touchEndX < touchStartX - threshold) {
-                changeTabRelative(1);
-            } else if (touchEndX > touchStartX + threshold) {
-                changeTabRelative(-1);
-            }
-        }, {passive: false});
-
-        let xDown = null;
-        let yDown = null;
-        let activeCardFront = null;
-
-        function handleTouchStart(evt) {
-            const front = evt.target.closest('.account-card-front');
-            if (!front) return;
-            evt.stopPropagation();
-            xDown = evt.touches[0].clientX;
-            yDown = evt.touches[0].clientY;
-            activeCardFront = front;
-        }
-
-        function handleTouchMove(evt) {
-            if (!xDown || !yDown || !activeCardFront) return;
-            let xUp = evt.touches[0].clientX;
-            let yUp = evt.touches[0].clientY;
-            let xDiff = xDown - xUp;
-            let yDiff = yDown - yUp;
-
-            if (Math.abs(xDiff) > Math.abs(yDiff)) {
-                evt.preventDefault();
-                evt.stopPropagation();
-                if (xDiff > 20) {
-                    activeCardFront.style.transform = 'translateX(-130px)';
-                } else if (xDiff < -20) {
-                    activeCardFront.style.transform = 'translateX(0)';
-                }
-            }
-        }
-
-        function handleTouchEnd() {
-            xDown = null;
-            yDown = null;
-            activeCardFront = null;
-        }
-
-        document.addEventListener('touchstart', handleTouchStart, false);
-        document.addEventListener('touchmove', handleTouchMove, {passive: false});
-        document.addEventListener('touchend', handleTouchEnd, false);
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.account-swipe-container')) {
-                document.querySelectorAll('.account-card-front').forEach(el => {
-                    el.style.transform = 'translateX(0)';
-                });
-            }
-        });
-
-        let activeSelectType = null;
-        let selectDataCache = { 
-            account: [], 
-            category: [], 
-            toAccount: [], 
-            manualType: [
-                {id: 'expense', name: 'Расход'},
-                {id: 'income', name: 'Доход'},
-                {id: 'transfer', name: 'Перевод на другой счет'}
+        let currentSelectType = null;
+        const selectDataCache = {
+            accCurrency: [
+                {id: 'UAH', name: 'Гривна (UAH)'},
+                {id: 'USD', name: 'Доллар (USD)'},
+                {id: 'EUR', name: 'Евро (EUR)'}
             ],
             accType: [
                 {id: 'cash', name: 'Наличные / Обычный'},
                 {id: 'bank', name: 'Банк (Monobank)'},
                 {id: 'privat', name: 'Банк (Приват24 Push)'}
-            ],
-            accCurrency: [
-                {id: 'UAH', name: 'Гривна (₴)'},
-                {id: 'USD', name: 'Доллар ($)'},
-                {id: 'EUR', name: 'Евро (€)'}
-            ],
-            monoCard: [],
-            editTxAccount: [],
-            editTxCategory: [],
-            catType: [
-                {id: 'expense', name: 'Расход'},
-                {id: 'income', name: 'Доход'}
             ],
             editCatType: [
                 {id: 'expense', name: 'Расход'},
@@ -652,149 +430,136 @@
                 {id: 'income', name: 'Доход'},
                 {id: 'transfer', name: 'Перевод'}
             ],
-            editTxToAccount: [],
+            // Остальные заполняются из app.js: account, toAccount, category, monoCard, editAccType, editTxAccount, editTxCategory, editTxToAccount
         };
 
         function openCustomSelect(type) {
-            activeSelectType = type;
-            const modal = document.getElementById('customDropdownModal');
-            const listContainer = document.getElementById('customDropdownList');
-            listContainer.innerHTML = '';
-            let items = selectDataCache[type] || [];
-
-            items.forEach(item => {
+            currentSelectType = type;
+            const container = document.getElementById('customSelectOptions');
+            container.innerHTML = '';
+            
+            let data = selectDataCache[type] || [];
+            data.forEach(item => {
                 const div = document.createElement('div');
-                div.className = 'custom-dropdown-item';
+                div.className = 'custom-option';
                 div.innerText = item.name;
-                div.onclick = () => {
-                    selectCustomOption(type, item.id, item.name);
-                    closeCustomSelect();
-                };
-                listContainer.appendChild(div);
+                div.onclick = () => selectCustomOption(type, item.id, item.name);
+                container.appendChild(div);
             });
-            modal.style.display = 'flex';
+            openModal('customSelectModal');
         }
 
-        function closeCustomSelect() {
-            document.getElementById('customDropdownModal').style.display = 'none';
-        }
-
-        function toggleEditTransferFields(txType) {
-            const catTrigger = document.getElementById('triggerEditTxCategory');
-            const toAccTrigger = document.getElementById('triggerEditTxToAccount');
-            const targetAmountInput = document.getElementById('editTxTargetAmount');
-
-            if (txType === 'transfer') {
-                if (catTrigger) catTrigger.style.display = 'none';
-                if (toAccTrigger) toAccTrigger.style.display = 'flex';
-                if (targetAmountInput) targetAmountInput.style.display = 'block';
-                if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
-            } else {
-                if (catTrigger) catTrigger.style.display = 'flex';
-                if (toAccTrigger) toAccTrigger.style.display = 'none';
-                if (targetAmountInput) targetAmountInput.style.display = 'none';
-            }
-        }
-
-        function selectCustomOption(type, id, name) {
-            if (type === 'account') {
-                document.getElementById('opAccountSelect').value = id;
-                document.getElementById('triggerAccount').innerText = name;
-                if (window.updateTransferCalculation) window.updateTransferCalculation();
-            } else if (type === 'category') {
-                document.getElementById('opCategorySelect').value = id;
-                document.getElementById('triggerCategory').innerText = name;
-            } else if (type === 'toAccount') {
-                document.getElementById('opToAccountSelect').value = id;
-                document.getElementById('triggerToAccount').innerText = name;
-                if (window.updateTransferCalculation) window.updateTransferCalculation();
-            } else if (type === 'manualType') {
-                document.getElementById('manualType').value = id;
-                document.getElementById('triggerManualType').innerText = name;
-                toggleTransferFields();
+        window.selectCustomOption = function(type, id, name) {
+            if (type === 'accCurrency') {
+                document.getElementById('accCurrency').value = id;
+                document.getElementById('triggerAccCurrency').innerText = name;
             } else if (type === 'accType') {
                 document.getElementById('accType').value = id;
                 document.getElementById('triggerAccType').innerText = name;
-                toggleBankSelect();
-            } else if (type === 'accCurrency') {
-                document.getElementById('accCurrency').value = id;
-                document.getElementById('triggerAccCurrency').innerText = name;
-            } else if (type === 'monoCard') {
-                document.getElementById('monoCardSelect').value = id;
-                document.getElementById('triggerMonoCard').innerText = name;
-            } else if (type === 'editTxAccount') {
-                document.getElementById('editTxAccount').value = id;
-                document.getElementById('triggerEditTxAccount').innerText = name;
-                if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
-            } else if (type === 'editTxCategory') {
-                document.getElementById('editTxCategory').value = id;
-                document.getElementById('triggerEditTxCategory').innerText = name;
-            } else if (type === 'catType') {
-                document.getElementById('newCatType').value = id;
-                document.getElementById('triggerNewCatType').innerText = name;
-            } else if (type === 'editCatType') {
-                document.getElementById('categoryTypeInput').value = id;
-                document.getElementById('triggerEditCatType').innerText = name;
-            } else if (type === 'editTxType') {
-                document.getElementById('editTxType').value = id;
-                document.getElementById('triggerEditTxType').innerText = name;
-                toggleEditTransferFields(id);
-            } else if (type === 'editTxToAccount') {
-                document.getElementById('editTxToAccount').value = id;
-                document.getElementById('triggerEditTxToAccount').innerText = name;
-                if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
+                
+                document.getElementById('manualAccFields').style.display = (id === 'cash') ? 'block' : 'none';
+                document.getElementById('monoTokenContainer').style.display = (id === 'bank') ? 'block' : 'none';
+                document.getElementById('privatMaskContainer').style.display = (id === 'privat') ? 'block' : 'none';
+                
+                if (id === 'bank' || id === 'privat') document.getElementById('manualAccFields').style.display = 'block';
+                if (id === 'bank') document.getElementById('accStartBalance').style.display = 'none';
+                else document.getElementById('accStartBalance').style.display = 'block';
             } else if (type === 'editAccType') {
                 document.getElementById('editAccType').value = id;
                 document.getElementById('triggerEditAccType').innerText = name;
-                toggleEditBankSelect();
+                if (window.toggleEditBankSelect) window.toggleEditBankSelect();
+            } else if (type === 'monoCard') {
+                document.getElementById('monoCardSelect').value = id;
+                document.getElementById('triggerMonoCard').innerText = name;
+            } else if (type === 'editCatType') {
+                document.getElementById('categoryTypeInput').value = id;
+                document.getElementById('triggerEditCatType').innerText = name;
+            } else if (type === 'account') {
+                document.getElementById('opAccountSelect').value = id;
+                document.getElementById('triggerOpAccount').innerText = name;
+                if (window.updateTransferCalculation) window.updateTransferCalculation();
+            } else if (type === 'toAccount') {
+                document.getElementById('opToAccountSelect').value = id;
+                document.getElementById('triggerOpToAccount').innerText = name;
+                if (window.updateTransferCalculation) window.updateTransferCalculation();
+            } else if (type === 'category') {
+                document.getElementById('opCategorySelect').value = id;
+                document.getElementById('triggerOpCategory').innerText = name;
+            } else if (type === 'editTxType') {
+                document.getElementById('editTxType').value = id;
+                document.getElementById('triggerEditTxType').innerText = name;
+                if (window.toggleEditTransferFields) window.toggleEditTransferFields(id);
+            } else if (type === 'editTxAccount') {
+                document.getElementById('editTxAccount').value = id;
+                document.getElementById('triggerEditTxAccount').innerText = name;
+            } else if (type === 'editTxToAccount') {
+                document.getElementById('editTxToAccount').value = id;
+                document.getElementById('triggerEditTxToAccount').innerText = name;
+            } else if (type === 'editTxCategory') {
+                document.getElementById('editTxCategory').value = id;
+                document.getElementById('triggerEditTxCategory').innerText = name;
             }
+            closeModal('customSelectModal');
         }
-function toggleEditBankSelect() {
+
+        window.toggleEditBankSelect = function() {
             const type = document.getElementById('editAccType').value;
             const tokenContainer = document.getElementById('editMonoTokenContainer');
-            if (tokenContainer) {
-                tokenContainer.style.display = (type === 'bank') ? 'block' : 'none';
-            }
-        }
-        function toggleBankSelect() {
-            const type = document.getElementById('accType').value;
-            document.getElementById('bankFields').style.display = (type === 'bank') ? 'block' : 'none';
-            document.getElementById('privatFields').style.display = (type === 'privat') ? 'block' : 'none';
-            document.getElementById('cashFields').style.display = (type === 'bank') ? 'none' : 'block';
+            const maskContainer = document.getElementById('editPrivatMaskContainer');
+            if (tokenContainer) tokenContainer.style.display = (type === 'bank') ? 'block' : 'none';
+            if (maskContainer) maskContainer.style.display = (type === 'privat') ? 'block' : 'none';
         }
 
-        function toggleTransferFields() {
-            const type = document.getElementById('manualType').value;
-            const toAcc = document.getElementById('triggerToAccount');
-            const cat = document.getElementById('triggerCategory');
-            const targetAmount = document.getElementById('transferTargetAmount');
-            const desc = document.getElementById('manualDesc');
+        function setOpType(type) {
+            document.querySelectorAll('.type-btn').forEach(b => {
+                b.style.background = 'var(--surface-color)'; b.style.borderColor = 'var(--border-color)'; b.classList.remove('active');
+            });
+            const btnMap = { 'expense': 'btnTypeExpense', 'income': 'btnTypeIncome', 'transfer': 'btnTypeTransfer' };
+            const activeBtn = document.getElementById(btnMap[type]);
+            activeBtn.classList.add('active');
+            
+            if (type === 'expense') activeBtn.style.background = 'var(--danger-color)';
+            if (type === 'income') activeBtn.style.background = 'var(--success-color)';
+            if (type === 'transfer') activeBtn.style.background = '#607D8B';
 
+            document.getElementById('manualType').value = type;
+            document.getElementById('transferTargetBlock').style.display = type === 'transfer' ? 'block' : 'none';
+            document.getElementById('transferTargetAmount').style.display = type === 'transfer' ? 'block' : 'none';
+            
+            const catTrigger = document.getElementById('triggerOpCategory');
             if (type === 'transfer') {
-                toAcc.style.display = 'flex';
-                cat.style.display = 'none';
-                targetAmount.style.display = 'block';
-                desc.placeholder = 'Описание перевода (необязательно)';
-                if (window.updateTransferCalculation) window.updateTransferCalculation();
+                catTrigger.style.opacity = '0.5'; catTrigger.style.pointerEvents = 'none';
             } else {
-                toAcc.style.display = 'none';
-                cat.style.display = 'flex';
-                targetAmount.style.display = 'none';
-                desc.placeholder = 'Описание (напр. Супермаркет)';
+                catTrigger.style.opacity = '1'; catTrigger.style.pointerEvents = 'auto';
+            }
+            if (window.updateTransferCalculation) window.updateTransferCalculation();
+        }
+
+        window.toggleEditTransferFields = function(type) {
+            const catTrigger = document.getElementById('triggerEditTxCategory');
+            const targetBlock = document.getElementById('editTransferTargetBlock');
+            const targetInput = document.getElementById('editTxTargetAmount');
+            if (type === 'transfer') {
+                targetBlock.style.display = 'block';
+                if (targetInput) targetInput.style.display = 'block';
+                if (catTrigger) { catTrigger.style.opacity = '0.5'; catTrigger.style.pointerEvents = 'none'; }
+            } else {
+                targetBlock.style.display = 'none';
+                if (targetInput) targetInput.style.display = 'none';
+                if (catTrigger) { catTrigger.style.opacity = '1'; catTrigger.style.pointerEvents = 'auto'; }
             }
         }
 
-        function selectAccIcon(icon, btn) {
-            document.querySelectorAll('.icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
-            btn.style.borderColor = 'var(--primary-color)';
-            document.getElementById('accIcon').value = icon;
-        }
-
-        function selectEditAccIcon(icon, btn) {
-            document.querySelectorAll('.edit-icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
+        window.selectEditAccIcon = function(icon, btn) {
+            document.querySelectorAll('#editAccIconPicker .edit-icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
             btn.style.borderColor = 'var(--primary-color)';
             document.getElementById('editAccIconVal').value = icon;
         }
+
+        document.getElementById('customSelectModal').addEventListener('click', (e) => {
+            if (e.target.id === 'customSelectModal') closeModal('customSelectModal');
+        });
     </script>
+    <script src="app.js"></script>
 </body>
 </html>
