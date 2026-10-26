@@ -254,7 +254,9 @@ window.createAccount = async function () {
   const nameInput = document.getElementById("accName").value.trim();
   const type = document.getElementById("accType").value;
   const isSavings = document.getElementById("accIsSavings").checked; // <-- ДОБАВИТЬ ЭТО
-    const icon = document.getElementById("accIcon") ? document.getElementById("accIcon").value : "💳";
+  const icon = document.getElementById("accIcon")
+    ? document.getElementById("accIcon").value
+    : "💳";
 
   let newAccount = {};
 
@@ -989,13 +991,11 @@ async function refreshAppData() {
     if (homeAccountsList) {
       const homeCard = document.createElement("div");
       homeCard.className = "account-card";
+      const accIcon = acc.icon || "💳";
       homeCard.innerHTML = `
             <div class="account-info">
-              <span class="account-name">${acc.name} ${savingsBadge}</span>
+                <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
                 <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
-                <div class="account-actions">
-                    ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Синхронизировать</button>` : ""}
-                </div>
             </div>
             <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
         `;
@@ -1003,10 +1003,10 @@ async function refreshAppData() {
     }
 
     // Для вкладки СЧЕТА (с кнопкой Сверить)
-   if (accountsList) {
+    if (accountsList) {
       const adminCard = document.createElement("div");
       adminCard.className = "account-card";
-      
+
       const accIcon = acc.icon || "💳"; // Иконка по умолчанию
 
       adminCard.innerHTML = `
@@ -1023,6 +1023,40 @@ async function refreshAppData() {
             <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
         `;
       accountsList.appendChild(adminCard);
+    }
+    // Для вкладки СЧЕТА (со свайпом)
+    if (accountsList) {
+      const swipeContainer = document.createElement("div");
+      swipeContainer.className = "account-swipe-container";
+      
+      const accIcon = acc.icon || "💳";
+
+      // Формируем кнопки под свайп в зависимости от типа счета
+      let hiddenActionsHtml = `
+          <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+          <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+      `;
+      if (acc.type === "bank" && acc.token) {
+          hiddenActionsHtml = `
+              <button class="swipe-action-btn swipe-sync" onclick="syncMonoAccount('${acc.id}', '${acc.token}')" title="Sync">🔄</button>
+              <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+              <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
+          `;
+      }
+
+      swipeContainer.innerHTML = `
+            <div class="account-swipe-actions">
+                ${hiddenActionsHtml}
+            </div>
+            <div class="account-card-front" id="card_${acc.id}">
+                <div class="account-info">
+                    <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
+                    <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
+                </div>
+                <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
+            </div>
+      `;
+      accountsList.appendChild(swipeContainer);
     }
 
     if (opAccountSelect) {

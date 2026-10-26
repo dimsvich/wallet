@@ -228,6 +228,56 @@
             margin-bottom: 8px; background: var(--bg-color); cursor: pointer; display: flex; justify-content: space-between;
         }
         .custom-dropdown-item:active { background: var(--primary-color); color: white; }
+
+        /* Контейнер карточки с обрезкой для эффекта свайпа */
+        .account-swipe-container {
+            position: relative;
+            margin-bottom: 12px;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #151821;
+            border: 1px solid var(--border-color);
+        }
+
+        /* Скрытые подложка-кнопки под карточкой */
+        .account-swipe-actions {
+            position: absolute;
+            top: 0; right: 0; bottom: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding-right: 12px;
+            z-index: 1;
+        }
+        .swipe-action-btn {
+            background: var(--surface-card);
+            border: none;
+            color: white;
+            font-size: 16px;
+            width: 44px; height: 44px;
+            border-radius: 12px;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .swipe-edit { background: #3b82f6; }
+        .swipe-sync { background: #ff5722; }
+        .swipe-delete { background: var(--danger-color); }
+
+        /* Сама передняя карточка счета, которая двигается */
+        .account-card-front {
+            position: relative;
+            z-index: 2;
+            background: var(--surface-card);
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            cursor: grab;
+            margin-bottom: 0 !important;
+            border: none !important;
+        }
     </style>
     
 </head>
@@ -686,6 +736,57 @@
             closeModal('editAccountModal');
             await refreshAppData();
         }
+        // Логика свайпа карточек счетов
+        document.addEventListener('touchstart', handleTouchStart, false);
+        document.addEventListener('touchmove', handleTouchMove, false);
+        document.addEventListener('touchend', handleTouchEnd, false);
+
+        let xDown = null;
+        let yDown = null;
+        let activeCardFront = null;
+
+        function handleTouchStart(evt) {
+            const front = evt.target.closest('.account-card-front');
+            if (!front) return;
+            xDown = evt.touches[0].clientX;
+            yDown = evt.touches[0].clientY;
+            activeCardFront = front;
+        }
+
+        function handleTouchMove(evt) {
+            if (!xDown || !yDown || !activeCardFront) return;
+
+            let xUp = evt.touches[0].clientX;
+            let yUp = evt.touches[0].clientY;
+            let xDiff = xDown - xUp;
+            let yDiff = yDown - yUp;
+
+            // Если свайп горизонтальный, а не вертикальный (прокрутка страницы)
+            if (Math.abs(xDiff) > Math.abs(yDiff)) {
+                if (xDiff > 20) {
+                    // Сдвиг влево (открываем кнопки, ширина кнопок примерно 120-160px)
+                    activeCardFront.style.transform = 'translateX(-130px)';
+                } else if (xDiff < -20) {
+                    // Сдвиг вправо (закрываем назад)
+                    activeCardFront.style.transform = 'translateX(0)';
+                }
+            }
+        }
+
+        function handleTouchEnd() {
+            xDown = null;
+            yDown = null;
+            activeCardFront = null;
+        }
+
+        // Клик вне карточки закрывает открытые свайпы
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.account-swipe-container')) {
+                document.querySelectorAll('.account-card-front').forEach(el => {
+                    el.style.transform = 'translateX(0)';
+                });
+            }
+        });
     </script>
     <!-- УНИВЕРСАЛЬНОЕ МОДАЛЬНОЕ ОКНО ДЛЯ КАСТОМНЫХ СПИСКОВ -->
     <div id="customDropdownModal" class="custom-dropdown-modal" onclick="closeCustomSelect()">
