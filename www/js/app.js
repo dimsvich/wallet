@@ -410,13 +410,29 @@ window.openEditTransaction = async function (txId) {
   const transactions = await getAllTransactions();
   const tx = transactions.find((t) => t.id === txId);
   if (!tx) return;
+
   document.getElementById("editTxId").value = tx.id;
-  document.getElementById("editTxAmount").value = (tx.amount / 100).toFixed(2);
+  document.getElementById("editTxAmount").value = (
+    Math.abs(tx.amount) / 100
+  ).toFixed(2);
   document.getElementById("editTxDesc").value = tx.description;
+
+  // Определяем текущий тип операции
+  let currentType = "expense";
+  let typeName = "Расход";
+  if (tx.isTransfer) {
+    currentType = "transfer";
+    typeName = "Перевод";
+  } else if (tx.amount > 0) {
+    currentType = "income";
+    typeName = "Доход";
+  }
 
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
+
   if (typeof selectCustomOption === "function") {
+    selectCustomOption("editTxType", currentType, typeName);
     const acc = accounts.find((a) => a.id === tx.accountId);
     const cat = categories.find((c) => c.id === tx.categoryId);
     selectCustomOption("editTxAccount", tx.accountId, acc ? acc.name : "Счет");
@@ -426,23 +442,41 @@ window.openEditTransaction = async function (txId) {
       cat ? cat.name : "Категория",
     );
   }
+
   window.openModal("editTxModal");
 };
 
 window.saveEditedTransaction = async function () {
   const txId = document.getElementById("editTxId").value;
   const rawAmount = parseFloat(document.getElementById("editTxAmount").value);
-  if (isNaN(rawAmount)) return;
+  if (isNaN(rawAmount) || rawAmount === 0)
+    return alert("Введите корректную сумму");
+
   const transactions = await getAllTransactions();
   const tx = transactions.find((t) => t.id === txId);
   if (!tx) return;
+
+  const txType = document.getElementById("editTxType").value;
   let newAmount = Math.round(Math.abs(rawAmount) * 100);
-  if (tx.amount < 0) newAmount = -newAmount;
+
+  // Применяем математический знак и флаг перевода в зависимости от выбранного типа
+  if (txType === "expense") {
+    newAmount = -newAmount;
+    tx.isTransfer = false;
+  } else if (txType === "income") {
+    newAmount = newAmount;
+    tx.isTransfer = false;
+  } else if (txType === "transfer") {
+    newAmount = tx.amount > 0 ? newAmount : -newAmount;
+    tx.isTransfer = true;
+  }
+
   tx.accountId = document.getElementById("editTxAccount").value;
   tx.categoryId = document.getElementById("editTxCategory").value;
   tx.amount = newAmount;
   tx.description = document.getElementById("editTxDesc").value.trim();
   tx.userModified = true;
+
   await saveTransaction(tx);
   window.closeModal("editTxModal");
   await refreshAppData();
@@ -507,34 +541,87 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
     const headers = { "X-Token": token };
     const accounts = await getAllAccounts();
     const targetAcc = accounts.find((a) => a.id === accountId);
-    const bankAccId = targetAcc ? targetAcc.bankAccountId : null;
+    if (!targetAcc) throw new Error("Счет не найден");
+
+    const bankAccId = targetAcc.bankAccountId || "0";
+    let currentBankBalance = null;
+    let creditLimit = targetAcc.creditLimit || 0;
+
+    // 1. Запрашиваем актуальный баланс карты из профиля клиента
+    try {
+      const clientRes = await fetch(
+        "https://api.monobank.ua/personal/client-info",
+        { headers },
+      );
+      if (clientRes.ok) {
+        const clientData = await clientRes.json();
+        const card =
+          clientData.accounts.find((a) => a.id === bankAccId) ||
+          clientData.accounts[0];
+        if (card) {
+          currentBankBalance = card.balance;
+          creditLimit = card.creditLimit || 0;
+        }
+      }
+    } catch (e) {
+      console.warn(
+        "Не удалось обновить client-info, попробуем взять баланс из выписки",
+      );
+    }
+
+    // 2. Запрашиваем выписку за последние 30 дней для конкретного bankAccountId
     const to = Math.floor(Date.now() / 1000);
     const from = to - 30 * 24 * 60 * 60;
     const stmtResponse = await fetch(
-      `https://api.monobank.ua/personal/statement/0/${from}/${to}`,
+      `https://api.monobank.ua/personal/statement/${bankAccId}/${from}/${to}`,
       { headers },
     );
-    if (!stmtResponse.ok) throw new Error("Ошибка API");
-    const data = await stmtResponse.json();
-    const existingTxs = await getAllTransactions();
 
-    for (let t of data) {
-      const txId = "mono_" + t.id;
-      const existing = existingTxs.find((item) => item.id === txId);
-      if (existing && existing.userModified) continue;
-      await saveTransaction({
-        id: txId,
-        accountId: accountId,
-        categoryId: "cat_default",
-        amount: t.amount,
-        description: t.description,
-        date: t.time,
-        userModified: false,
-      });
+    if (stmtResponse.ok) {
+      const data = await stmtResponse.json();
+      const existingTxs = await getAllTransactions();
+
+      for (let t of data) {
+        const txId = "mono_" + t.id;
+        const existing = existingTxs.find((item) => item.id === txId);
+        if (existing && existing.userModified) continue;
+
+        await saveTransaction({
+          id: txId,
+          accountId: accountId,
+          categoryId: "cat_default",
+          amount: t.amount,
+          description: t.description,
+          date: t.time,
+          userModified: false,
+        });
+      }
+
+      // Если client-info не ответил, берем остаток из самой последней операции выписки
+      if (currentBankBalance === null && data.length > 0) {
+        currentBankBalance = data[0].balance;
+      }
     }
+
+    // 3. СВЕРКА ОСТАТКА: высчитываем startBalance так, чтобы (startBalance + сумма транзакций) == реальный баланс банка
+    if (currentBankBalance !== null) {
+      const updatedTxs = await getAllTransactions();
+      let txSum = 0;
+      updatedTxs.forEach((tx) => {
+        if (tx.accountId === accountId) {
+          txSum += tx.amount;
+        }
+      });
+
+      targetAcc.startBalance = currentBankBalance - txSum;
+      targetAcc.creditLimit = creditLimit;
+      await saveAccount(targetAcc);
+    }
+
     if (!isSilent) setSyncStatusMsg("Синхронизация успешна!");
     await refreshAppData();
   } catch (error) {
+    console.error("Ошибка синхронизации Mono:", error);
     if (!isSilent) setSyncStatusMsg("Ошибка подключения к Mono.");
   }
 };

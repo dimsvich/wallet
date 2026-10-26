@@ -417,6 +417,9 @@
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
             <input type="hidden" id="editTxId">
             
+            <div class="custom-select-trigger" id="triggerEditTxType" onclick="openCustomSelect('editTxType')">Тип операции...</div>
+            <input type="hidden" id="editTxType" value="expense">
+
             <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет...</div>
             <input type="hidden" id="editTxAccount" value="">
 
@@ -594,7 +597,12 @@
             editCatType: [
                 {id: 'expense', name: 'Расход'},
                 {id: 'income', name: 'Доход'}
-            ]
+            ],
+            editTxType: [
+                {id: 'expense', name: 'Расход'},
+                {id: 'income', name: 'Доход'},
+                {id: 'transfer', name: 'Перевод'}
+            ],
         };
 
         function openCustomSelect(type) {
@@ -661,6 +669,9 @@
             } else if (type === 'editCatType') {
                 document.getElementById('categoryTypeInput').value = id;
                 document.getElementById('triggerEditCatType').innerText = name;
+            } else if (type === 'editTxType') {
+                document.getElementById('editTxType').value = id;
+                document.getElementById('triggerEditTxType').innerText = name;
             }
         }
 
