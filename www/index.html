@@ -137,6 +137,7 @@
             background: var(--surface-card); padding: 24px; border-radius: 20px; width: 90%; max-width: 400px; 
             box-sizing: border-box; border: 1px solid var(--border-color);
             box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            max-height: 90vh; overflow-y: auto;
         }
 
         .category-card { margin-bottom: 10px; }
@@ -216,7 +217,6 @@
             transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             cursor: grab; margin-bottom: 0 !important; border: none !important;
         }
-        /* Стили для объединенной карточки перевода (как в Дзен-мани) */
         .transfer-card { cursor: pointer; }
         .transfer-icon {
             width: 36px; height: 36px; border-radius: 50%;
@@ -329,11 +329,9 @@
                 Подключить Google Аккаунт
             </button>
             
-           <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
-        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;" onchange="handleZenmoneyImport(this)">
-        <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
-            📊 Импортировать CSV из Дзен-мани
-        </button>
+            <div id="googleSyncBlocks" style="display: none; gap: 8px;">
+                <button class="btn-secondary" onclick="forceBackupToCloud()">Выгрузить в облако</button>
+                <button class="btn-secondary" onclick="forceRestoreFromCloud()">Восстановить из облака</button>
             </div>
         </div>
         
@@ -343,7 +341,7 @@
         <button class="btn-secondary" style="margin-top: 8px;" onclick="document.getElementById('importFile').click()">Импорт бэкапа из файла</button>
 
         <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
-        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;">
+        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;" onchange="handleZenmoneyImport(this)">
         <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
             📊 Импортировать CSV из Дзен-мани
         </button>
@@ -405,6 +403,7 @@
         </div>
     </div>
 
+    <!-- Модальное окно редактирования счета (обновлено для поддержки токена Монобанка) -->
     <div id="editAccountModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
@@ -423,9 +422,21 @@
                 <input type="hidden" id="editAccIconVal" value="💳">
             </div>
 
-            <input type="text" id="editAccName" placeholder="Новое название счета">
+            <input type="text" id="editAccName" placeholder="Название счета">
             
-            <button onclick="saveEditedAccountName()">Сохранить</button>
+            <div id="editMonoTokenContainer" style="display: none; margin-top: 10px;">
+                <label style="font-size: 12px; color: #888; display:block; margin-bottom:4px;">Токен Монобанка (X-Token):</label>
+                <input type="text" id="editAccToken" placeholder="Введите токен для синхронизации">
+            </div>
+
+            <div style="margin: 15px 0;">
+                <label style="font-size: 14px; color: #ccc; display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="editAccIsSavings" style="width: auto; margin: 0;"> 
+                    Накопительный счет (сейф)
+                </label>
+            </div>
+
+            <button onclick="saveEditedAccount()">Сохранить</button>
             <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
         </div>
     </div>
@@ -435,23 +446,18 @@
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
             <input type="hidden" id="editTxId">
             
-            <!-- Выбор типа операции -->
             <div class="custom-select-trigger" id="triggerEditTxType" onclick="openCustomSelect('editTxType')">Тип операции...</div>
             <input type="hidden" id="editTxType" value="expense">
 
-            <!-- Счет списания -->
             <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет...</div>
             <input type="hidden" id="editTxAccount" value="">
 
-            <!-- Счет получателя (только для перевода) -->
             <div class="custom-select-trigger" id="triggerEditTxToAccount" style="display: none;" onclick="openCustomSelect('editTxToAccount')">Счет получателя...</div>
             <input type="hidden" id="editTxToAccount" value="">
 
-            <!-- Категория (только для доходов/расходов) -->
             <div class="custom-select-trigger" id="triggerEditTxCategory" onclick="openCustomSelect('editTxCategory')">Категория...</div>
             <input type="hidden" id="editTxCategory" value="">
 
-            <!-- Суммы -->
             <input type="number" id="editTxAmount" placeholder="Сумма списания">
             <input type="number" id="editTxTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
 
@@ -522,9 +528,7 @@
             }
         }
 
-        // Глобальный свайп вкладок с фильтрацией конфликтов
         let touchStartX = null;
-
         document.addEventListener('touchstart', e => {
             if (e.target.closest('.account-card-front') || e.target.closest('.modal') || e.target.closest('.custom-dropdown-content')) {
                 touchStartX = null; 
@@ -544,7 +548,6 @@
             }
         }, {passive: false});
 
-        // Свайп по карточке счета
         let xDown = null;
         let yDown = null;
         let activeCardFront = null;
@@ -560,7 +563,6 @@
 
         function handleTouchMove(evt) {
             if (!xDown || !yDown || !activeCardFront) return;
-
             let xUp = evt.touches[0].clientX;
             let yUp = evt.touches[0].clientY;
             let xDiff = xDown - xUp;
@@ -595,7 +597,6 @@
             }
         });
 
-        // Кастомные списки выбора
         let activeSelectType = null;
         let selectDataCache = { 
             account: [], 
@@ -640,7 +641,6 @@
             const modal = document.getElementById('customDropdownModal');
             const listContainer = document.getElementById('customDropdownList');
             listContainer.innerHTML = '';
-
             let items = selectDataCache[type] || [];
 
             items.forEach(item => {
@@ -653,7 +653,6 @@
                 };
                 listContainer.appendChild(div);
             });
-
             modal.style.display = 'flex';
         }
 
@@ -766,46 +765,6 @@
             document.querySelectorAll('.edit-icon-chip').forEach(el => el.style.borderColor = 'var(--border-color)');
             btn.style.borderColor = 'var(--primary-color)';
             document.getElementById('editAccIconVal').value = icon;
-        }
-
-        async function openEditAccountModal(accountId) {
-            const accounts = await getAllAccounts();
-            const acc = accounts.find(a => a.id === accountId);
-            if (!acc) return;
-
-            document.getElementById('editAccId').value = acc.id;
-            document.getElementById('editAccName').value = acc.name;
-            const icon = acc.icon || '💳';
-            document.getElementById('editAccIconVal').value = icon;
-
-            document.querySelectorAll('.edit-icon-chip').forEach(el => {
-                if (el.innerText === icon) {
-                    el.style.borderColor = 'var(--primary-color)';
-                } else {
-                    el.style.borderColor = 'var(--border-color)';
-                }
-            });
-
-            openModal('editAccountModal');
-        }
-
-        async function saveEditedAccountName() {
-            const accountId = document.getElementById('editAccId').value;
-            const newName = document.getElementById('editAccName').value.trim();
-            const newIcon = document.getElementById('editAccIconVal').value;
-
-            if (!newName) return alert('Введите название счета');
-
-            const accounts = await getAllAccounts();
-            const acc = accounts.find(a => a.id === accountId);
-            if (!acc) return;
-
-            acc.name = newName;
-            acc.icon = newIcon;
-
-            await saveAccount(acc);
-            closeModal('editAccountModal');
-            await refreshAppData();
         }
     </script>
 </body>

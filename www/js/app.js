@@ -328,6 +328,64 @@ window.createAccount = async function () {
   await refreshAppData();
 };
 
+window.openEditAccountModal = async function (accountId) {
+  const accounts = await getAllAccounts();
+  const acc = accounts.find((a) => a.id === accountId);
+  if (!acc) return;
+
+  document.getElementById("editAccId").value = acc.id;
+  document.getElementById("editAccName").value = acc.name;
+  const icon = acc.icon || "💳";
+  document.getElementById("editAccIconVal").value = icon;
+  document.getElementById("editAccIsSavings").checked = !!acc.isSavings;
+
+  const tokenContainer = document.getElementById("editMonoTokenContainer");
+  const tokenInput = document.getElementById("editAccToken");
+
+  if (acc.type === "bank") {
+    tokenContainer.style.display = "block";
+    tokenInput.value = acc.token || "";
+  } else {
+    tokenContainer.style.display = "none";
+    tokenInput.value = "";
+  }
+
+  document.querySelectorAll(".edit-icon-chip").forEach((el) => {
+    if (el.innerText === icon) {
+      el.style.borderColor = "var(--primary-color)";
+    } else {
+      el.style.borderColor = "var(--border-color)";
+    }
+  });
+
+  openModal("editAccountModal");
+};
+
+window.saveEditedAccount = async function () {
+  const accountId = document.getElementById("editAccId").value;
+  const newName = document.getElementById("editAccName").value.trim();
+  const newIcon = document.getElementById("editAccIconVal").value;
+  const isSavings = document.getElementById("editAccIsSavings").checked;
+  const newToken = document.getElementById("editAccToken").value.trim();
+
+  if (!newName) return alert("Введите название счета");
+
+  const accounts = await getAllAccounts();
+  const acc = accounts.find((a) => a.id === accountId);
+  if (!acc) return;
+
+  acc.name = newName;
+  acc.icon = newIcon;
+  acc.isSavings = isSavings;
+  if (acc.type === "bank") {
+    acc.token = newToken;
+  }
+
+  await saveAccount(acc);
+  closeModal("editAccountModal");
+  await refreshAppData();
+};
+
 window.createCategory = async function () {
   const name = document.getElementById("newCatName").value.trim();
   const type = document.getElementById("newCatType")
@@ -1228,13 +1286,13 @@ async function refreshAppData() {
       `;
     } else {
       let hiddenActionsHtml = `
-          <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+          <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить">✏️</button>
           <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
       `;
       if (acc.type === "bank" && acc.token) {
         hiddenActionsHtml = `
               <button class="swipe-action-btn swipe-sync" onclick="syncMonoAccount('${acc.id}', '${acc.token}')" title="Sync">🔄</button>
-              <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить имя">✏️</button>
+              <button class="swipe-action-btn swipe-edit" onclick="openEditAccountModal('${acc.id}')" title="Изменить">✏️</button>
               <button class="swipe-action-btn swipe-delete" onclick="deleteAccount('${acc.id}')" title="Удалить">🗑️</button>
           `;
       }
@@ -1462,9 +1520,6 @@ window.deleteAccount = async function (accountId) {
   };
 };
 
-// ==========================================
-// ЭКСПОРТ И ИМПОРТ ДАННЫХ (JSON БЭКАП)
-// ==========================================
 window.exportData = async function () {
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
@@ -1572,9 +1627,6 @@ async function restoreDatabase(data) {
   });
 }
 
-// ==========================================
-// ИНТЕГРАЦИЯ GOOGLE DRIVE (APPDATA)
-// ==========================================
 let socialLoginReady = false;
 
 window.connectGoogleAccount = async function () {
@@ -1923,40 +1975,46 @@ window.importZenmoneyCSV = async function (csvText) {
     const incCurr = row[idx.incomeCurrency] || "UAH";
     const catName = (row[idx.categoryName] || "").replace(/"/g, "").trim();
 
-    if (outAcc && !accountsMap.has(outAcc)) {
-      accountsMap.set(outAcc, {
+    // Функция создания конфига счета с автоматическим определением, является ли он сейфом/накопительным
+    const createAccObj = (accName, currency) => {
+      const lower = accName.toLowerCase();
+      const isPrivat = lower.includes("приват") || lower.includes("universal");
+      const isSavings =
+        lower.includes("копилка") ||
+        lower.includes("долги") ||
+        currency === "USD" ||
+        currency === "EUR";
+
+      let type = "bank";
+      if (lower.includes("наличные")) type = "cash";
+      else if (isPrivat) type = "privat";
+
+      let icon = "💳";
+      if (lower.includes("наличные")) icon = "💵";
+      else if (lower.includes("копилка")) icon = "🐖";
+      else if (currency === "USD" || currency === "EUR") icon = "💎";
+
+      return {
         id: "acc_" + Math.random().toString(36).substr(2, 9),
-        name: outAcc,
+        name: accName,
         startBalance: 0,
         creditLimit: 0,
-        currency: outCurr,
-        type: outAcc.toLowerCase().includes("наличные") ? "cash" : "bank",
-        bank: outAcc.toLowerCase().includes("наличные") ? null : outAcc,
-        isSavings: outAcc.includes("Копилка") || outAcc.includes("Долги"),
-        icon: outAcc.includes("Наличные")
-          ? "💵"
-          : outAcc.includes("Копилка")
-            ? "🐖"
-            : "💳",
-      });
+        currency: currency,
+        type: type,
+        bank: type === "cash" ? null : accName,
+        token: null,
+        bankAccountId: null,
+        isSavings: isSavings,
+        icon: icon,
+      };
+    };
+
+    if (outAcc && !accountsMap.has(outAcc)) {
+      accountsMap.set(outAcc, createAccObj(outAcc, outCurr));
     }
 
     if (incAcc && !accountsMap.has(incAcc)) {
-      accountsMap.set(incAcc, {
-        id: "acc_" + Math.random().toString(36).substr(2, 9),
-        name: incAcc,
-        startBalance: 0,
-        creditLimit: 0,
-        currency: incCurr,
-        type: incAcc.toLowerCase().includes("наличные") ? "cash" : "bank",
-        bank: incAcc.toLowerCase().includes("наличные") ? null : incAcc,
-        isSavings: incAcc.includes("Копилка") || incAcc.includes("Долги"),
-        icon: incAcc.includes("Наличные")
-          ? "💵"
-          : incAcc.includes("Копилка")
-            ? "🐖"
-            : "💳",
-      });
+      accountsMap.set(incAcc, createAccObj(incAcc, incCurr));
     }
 
     if (catName && !categoriesMap.has(catName)) {
