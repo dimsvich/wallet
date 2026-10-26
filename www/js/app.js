@@ -965,6 +965,7 @@ async function refreshAppData() {
     let balanceInUAH = ownFunds;
     if (acc.currency === "USD") balanceInUAH = ownFunds * exchangeRates.USD;
     if (acc.currency === "EUR") balanceInUAH = ownFunds * exchangeRates.EUR;
+    
     // ДОБАВЛЯЕМ ПРОВЕРКУ НА НАКОПЛЕНИЕ
     if (!acc.isSavings) {
       totalGlobalBalanceUAH += balanceInUAH;
@@ -987,7 +988,7 @@ async function refreshAppData() {
         `;
     }
 
-    // Для ГЛАВНОЙ вкладки (без кнопки редактирования/сверки)
+    // 1. Для ГЛАВНОЙ вкладки (с иконкой)
     if (homeAccountsList) {
       const homeCard = document.createElement("div");
       homeCard.className = "account-card";
@@ -1002,29 +1003,7 @@ async function refreshAppData() {
       homeAccountsList.appendChild(homeCard);
     }
 
-    // Для вкладки СЧЕТА (с кнопкой Сверить)
-    if (accountsList) {
-      const adminCard = document.createElement("div");
-      adminCard.className = "account-card";
-
-      const accIcon = acc.icon || "💳"; // Иконка по умолчанию
-
-      adminCard.innerHTML = `
-            <div class="account-info">
-                <span class="account-name">${accIcon} ${acc.name} ${savingsBadge}</span>
-                <span class="account-sub">${acc.type === "bank" || acc.type === "privat" ? "Банк: " + acc.bank : "Наличные"}</span>
-                <div class="account-actions">
-                    <button class="btn-secondary btn-sm" onclick="openEditAccountModal('${acc.id}')">✏️ Имя</button>
-                    <button class="btn-secondary btn-sm" onclick="openAdjustModal('${acc.id}', ${accBalance})">Сверить</button>
-                    <button class="btn-secondary btn-sm" style="background: #d9534f; color: white; border: none;" onclick="deleteAccount('${acc.id}')">Удалить</button>
-                    ${acc.type === "bank" && acc.token ? `<button class="btn-sm" style="background:#ff5722;" onclick="syncMonoAccount('${acc.id}', '${acc.token}')">🔄 Sync</button>` : ""}
-                </div>
-            </div>
-            <div style="display:flex; flex-direction:column; justify-content:center; align-items:flex-end;">${sumHtml}</div>
-        `;
-      accountsList.appendChild(adminCard);
-    }
-    // Для вкладки СЧЕТА (со свайпом)
+    // 2. Для вкладки СЧЕТА (только со свайпом, без дублирования)
     if (accountsList) {
       const swipeContainer = document.createElement("div");
       swipeContainer.className = "account-swipe-container";
@@ -1065,7 +1044,7 @@ async function refreshAppData() {
       opt.innerText = `${acc.name} (Ост: ${availableStr} ${symbol})`;
       opAccountSelect.appendChild(opt);
     }
-    // ДОБАВИТЬ ЭТО: Заполняем второй селект для переводов
+    
     const opToAccountSelect = document.getElementById("opToAccountSelect");
     if (opToAccountSelect) {
       const optTo = document.createElement("option");
@@ -1139,7 +1118,8 @@ async function refreshAppData() {
 
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
-  // Обновляем данные для кастомных списков
+
+  // Обновляем данные для кастомных списков операций и переводов
   selectDataCache.account = accounts.map((a) => ({
     id: a.id,
     name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
@@ -1152,6 +1132,10 @@ async function refreshAppData() {
     id: c.id,
     name: c.name,
   }));
+  
+  // Добавляем заполнение кастомных списков для модалки редактирования транзакций
+  selectDataCache.editTxAccount = accounts.map((a) => ({ id: a.id, name: a.name }));
+  selectDataCache.editTxCategory = categories.map((c) => ({ id: c.id, name: c.name }));
 
   // Устанавливаем тексты по умолчанию для триггеров, если ничего не выбрано
   if (

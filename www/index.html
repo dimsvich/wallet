@@ -453,12 +453,19 @@
         </div>
     </div>
 
-    <div id="editTxModal" class="modal">
+   <div id="editTxModal" class="modal">
         <div class="modal-content">
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
             <input type="hidden" id="editTxId">
-            <select id="editTxAccount"></select>
-            <select id="editTxCategory"></select>
+            
+            <!-- Кастомный выбор счета -->
+            <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет...</div>
+            <input type="hidden" id="editTxAccount" value="">
+
+            <!-- Кастомный выбор категории -->
+            <div class="custom-select-trigger" id="triggerEditTxCategory" onclick="openCustomSelect('editTxCategory')">Категория...</div>
+            <input type="hidden" id="editTxCategory" value="">
+
             <input type="number" id="editTxAmount" placeholder="Сумма">
             <input type="text" id="editTxDesc" placeholder="Описание">
             <button onclick="saveEditedTransaction()">Сохранить изменения</button>
@@ -640,7 +647,9 @@
                 {id: 'USD', name: 'Доллар ($)'},
                 {id: 'EUR', name: 'Евро (€)'}
             ],
-            monoCard: []
+            monoCard: [],
+            editTxAccount: [],
+            editTxCategory: [],
         };
 
         function selectCustomOption(type, id, name) {
@@ -669,6 +678,13 @@
             } else if (type === 'monoCard') {
                 document.getElementById('monoCardSelect').value = id;
                 document.getElementById('triggerMonoCard').innerText = name;
+            }
+            else if (type === 'editTxAccount') {
+                document.getElementById('editTxAccount').value = id;
+                document.getElementById('triggerEditTxAccount').innerText = name;
+            } else if (type === 'editTxCategory') {
+                document.getElementById('editTxCategory').value = id;
+                document.getElementById('triggerEditTxCategory').innerText = name;
             }
         }
 
@@ -744,10 +760,10 @@
         let xDown = null;
         let yDown = null;
         let activeCardFront = null;
-
-        function handleTouchStart(evt) {
+function handleTouchStart(evt) {
             const front = evt.target.closest('.account-card-front');
             if (!front) return;
+            evt.stopPropagation(); // ОСТАНАВЛИВАЕМ ПЕРЕДАЧУ СОБЫТИЯ НА ВКЛАДКИ
             xDown = evt.touches[0].clientX;
             yDown = evt.touches[0].clientY;
             activeCardFront = front;
@@ -755,7 +771,7 @@
 
         function handleTouchMove(evt) {
             if (!xDown || !yDown || !activeCardFront) return;
-
+            evt.stopPropagation(); // ОСТАНАВЛИВАЕМ ПЕРЕДАЧУ
             let xUp = evt.touches[0].clientX;
             let yUp = evt.touches[0].clientY;
             let xDiff = xDown - xUp;
