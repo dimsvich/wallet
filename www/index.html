@@ -124,39 +124,42 @@
         .tab-content { display: none; opacity: 0; transition: opacity 0.3s ease; }
         .tab-content.active { display: block; opacity: 1; animation: fadeIn 0.3s ease forwards; }
         /* Ультрасовременный стиль для всех выпадающих списков */
+       /* Ультрасовременный и гарантированный стиль для всех выпадающих списков */
         select {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 14px 16px;
-            margin-bottom: 12px;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            background: var(--bg-color);
-            color: var(--text-main);
-            font-size: 15px;
-            outline: none;
-            appearance: none; /* Убираем стандартную убогую стрелочку ОС */
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            /* Достаем свою красивую и аккуратную стрелочку */
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 16px center;
-            background-size: 18px;
-            cursor: pointer;
-            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100% !important;
+            box-sizing: border-box !important;
+            padding: 14px 16px !important;
+            margin-bottom: 12px !important;
+            border-radius: 12px !important;
+            border: 1px solid var(--border-color) !important;
+            background-color: var(--bg-color) !important;
+            color: var(--text-main) !important;
+            font-size: 15px !important;
+            outline: none !important;
+            
+            /* Жесткий сброс нативных стилей iOS и Android */
+            appearance: none !important;
+            -webkit-appearance: none !important;
+            -moz-appearance: none !important;
+            
+            /* Наша фирменная стрелочка */
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+            background-repeat: no-repeat !important;
+            background-position: right 16px center !important;
+            background-size: 18px !important;
+            cursor: pointer !important;
+            box-shadow: none !important;
         }
 
         select:focus {
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+            border-color: var(--primary-color) !important;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15) !important;
         }
 
-        /* Красивое оформление опций внутри выпадающего списка (работает в Chrome/Android) */
         select option {
-            background-color: var(--surface-card);
-            color: var(--text-main);
-            padding: 12px;
+            background-color: var(--surface-card) !important;
+            color: var(--text-main) !important;
+            padding: 12px !important;
         }
         
         @keyframes fadeIn {
