@@ -339,6 +339,12 @@
         <button class="btn-secondary" onclick="exportData()">Экспорт бэкапа в файл</button>
         <input type="file" id="importFile" accept=".json" style="display: none;">
         <button class="btn-secondary" style="margin-top: 8px;" onclick="document.getElementById('importFile').click()">Импорт бэкапа из файла</button>
+
+        <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
+        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;">
+        <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
+            📊 Импортировать CSV из Дзен-мани
+        </button>
     </div>
 
     <!-- МОДАЛЬНЫЕ ОКНА -->

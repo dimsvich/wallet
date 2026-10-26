@@ -25,6 +25,34 @@ const CHART_COLORS = [
 ];
 
 document.addEventListener("DOMContentLoaded", async () => {
+  document.addEventListener("DOMContentLoaded", () => {
+    const zenInput = document.getElementById("importZenmoneyFile");
+    if (zenInput) {
+      zenInput.addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!confirm(`Импортировать операции из файла "${file.name}"?`)) {
+          zenInput.value = "";
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = async function (event) {
+          try {
+            await window.importZenmoneyCSV(event.target.result);
+            zenInput.value = "";
+          } catch (err) {
+            console.error("Ошибка импорта:", err);
+            alert("Ошибка при обработке CSV-файла Дзен-мани.");
+            zenInput.value = "";
+          }
+        };
+        reader.readAsText(file);
+      });
+    }
+  });
+
   const editAmountInput = document.getElementById("editTxAmount");
   if (editAmountInput) {
     editAmountInput.addEventListener("input", () => {
@@ -420,7 +448,10 @@ window.openEditTransaction = async function (txId) {
 
   document.getElementById("editTxId").value = tx.id;
   // Убираем техническое слово "Перевод: " из поля ввода, чтобы не мозолило глаза
-  document.getElementById("editTxDesc").value = tx.description.replace(/^Перевод:\s*/, "");
+  document.getElementById("editTxDesc").value = tx.description.replace(
+    /^Перевод:\s*/,
+    "",
+  );
 
   let currentType = "expense";
   let typeName = "Расход";
@@ -434,49 +465,68 @@ window.openEditTransaction = async function (txId) {
     typeName = "Перевод";
 
     // Находим пару для этого перевода
-    const pairTx = transactions.find(t => t.id !== tx.id && t.description === tx.description && Math.abs(t.date - tx.date) <= 60);
+    const pairTx = transactions.find(
+      (t) =>
+        t.id !== tx.id &&
+        t.description === tx.description &&
+        Math.abs(t.date - tx.date) <= 60,
+    );
     const txOut = tx.amount < 0 ? tx : pairTx;
     const txIn = tx.amount > 0 ? tx : pairTx;
 
     if (txOut && txIn) {
-        displayAmount = Math.abs(txOut.amount);
-        targetAmount = (txIn.amount / 100).toFixed(2);
-        toAccountId = txIn.accountId;
-        activeAccountId = txOut.accountId; 
+      displayAmount = Math.abs(txOut.amount);
+      targetAmount = (txIn.amount / 100).toFixed(2);
+      toAccountId = txIn.accountId;
+      activeAccountId = txOut.accountId;
     }
   } else if (tx.amount > 0) {
     currentType = "income";
     typeName = "Доход";
   }
 
-  document.getElementById("editTxAmount").value = (displayAmount / 100).toFixed(2);
+  document.getElementById("editTxAmount").value = (displayAmount / 100).toFixed(
+    2,
+  );
   if (document.getElementById("editTxTargetAmount")) {
-      document.getElementById("editTxTargetAmount").value = targetAmount;
+    document.getElementById("editTxTargetAmount").value = targetAmount;
   }
 
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
 
   if (typeof selectDataCache !== "undefined") {
-    selectDataCache.editTxToAccount = accounts.map((a) => ({ id: a.id, name: a.name }));
+    selectDataCache.editTxToAccount = accounts.map((a) => ({
+      id: a.id,
+      name: a.name,
+    }));
   }
 
   if (typeof selectCustomOption === "function") {
-    selectCustomOption('editTxType', currentType, typeName);
+    selectCustomOption("editTxType", currentType, typeName);
 
     const acc = accounts.find((a) => a.id === activeAccountId);
     const cat = categories.find((c) => c.id === tx.categoryId);
 
-    selectCustomOption('editTxAccount', activeAccountId, acc ? acc.name : 'Счет');
-    selectCustomOption('editTxCategory', tx.categoryId || 'cat_default', cat ? cat.name : 'Без категории');
+    selectCustomOption(
+      "editTxAccount",
+      activeAccountId,
+      acc ? acc.name : "Счет",
+    );
+    selectCustomOption(
+      "editTxCategory",
+      tx.categoryId || "cat_default",
+      cat ? cat.name : "Без категории",
+    );
 
     // Если это перевод, выбираем найденный второй счет, иначе просто первый попавшийся
-    const fallbackOtherAcc = accounts.find((a) => a.id !== activeAccountId) || accounts[0];
+    const fallbackOtherAcc =
+      accounts.find((a) => a.id !== activeAccountId) || accounts[0];
     const finalToAccId = toAccountId || fallbackOtherAcc.id;
-    const toAccObj = accounts.find(a => a.id === finalToAccId);
-    
+    const toAccObj = accounts.find((a) => a.id === finalToAccId);
+
     if (toAccObj) {
-      selectCustomOption('editTxToAccount', finalToAccId, toAccObj.name);
+      selectCustomOption("editTxToAccount", finalToAccId, toAccObj.name);
     }
   }
 
@@ -490,7 +540,8 @@ window.openEditTransaction = async function (txId) {
 window.saveEditedTransaction = async function () {
   const txId = document.getElementById("editTxId").value;
   const rawAmount = parseFloat(document.getElementById("editTxAmount").value);
-  if (isNaN(rawAmount) || rawAmount <= 0) return alert("Введите корректную сумму");
+  if (isNaN(rawAmount) || rawAmount <= 0)
+    return alert("Введите корректную сумму");
 
   const transactions = await getAllTransactions();
   const tx = transactions.find((t) => t.id === txId);
@@ -506,15 +557,22 @@ window.saveEditedTransaction = async function () {
   // Ищем парную транзакцию (до изменений), чтобы потом её удалить/обновить
   let oldPairId = null;
   if (tx.isTransfer) {
-      const oldPair = transactions.find(t => t.id !== tx.id && t.description === tx.description && Math.abs(t.date - tx.date) <= 60);
-      if (oldPair) oldPairId = oldPair.id;
+    const oldPair = transactions.find(
+      (t) =>
+        t.id !== tx.id &&
+        t.description === tx.description &&
+        Math.abs(t.date - tx.date) <= 60,
+    );
+    if (oldPair) oldPairId = oldPair.id;
   }
 
   if (txType === "transfer") {
     if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
       return alert("Выберите разные счета для перевода");
     }
-    const rawTargetAmount = parseFloat(document.getElementById("editTxTargetAmount").value);
+    const rawTargetAmount = parseFloat(
+      document.getElementById("editTxTargetAmount").value,
+    );
     if (isNaN(rawTargetAmount) || rawTargetAmount <= 0) {
       return alert("Укажите сумму зачисления");
     }
@@ -544,16 +602,16 @@ window.saveEditedTransaction = async function () {
       userModified: true,
       isTransfer: true,
     });
-
   } else {
-    // Если мы сменили тип с "Перевод" на обычный "Расход/Доход", 
+    // Если мы сменили тип с "Перевод" на обычный "Расход/Доход",
     // нам нужно удалить теперь уже ненужную парную транзакцию перевода
     if (oldPairId) await removeTransaction(oldPairId);
 
     if (txType === "expense") amountInKopecks = -amountInKopecks;
 
     tx.accountId = fromAccountId;
-    tx.categoryId = document.getElementById("editTxCategory").value || "cat_default";
+    tx.categoryId =
+      document.getElementById("editTxCategory").value || "cat_default";
     tx.amount = amountInKopecks;
     tx.description = desc;
     tx.isTransfer = false;
@@ -569,11 +627,16 @@ window.deleteTransaction = async function () {
   const txId = document.getElementById("editTxId").value;
   const transactions = await getAllTransactions();
   const tx = transactions.find((t) => t.id === txId);
-  
+
   // Если удаляем перевод, нужно грохнуть и его пару!
   if (tx && tx.isTransfer) {
-      const pairTx = transactions.find(t => t.id !== tx.id && t.description === tx.description && Math.abs(t.date - tx.date) <= 60);
-      if (pairTx) await removeTransaction(pairTx.id);
+    const pairTx = transactions.find(
+      (t) =>
+        t.id !== tx.id &&
+        t.description === tx.description &&
+        Math.abs(t.date - tx.date) <= 60,
+    );
+    if (pairTx) await removeTransaction(pairTx.id);
   }
 
   await removeTransaction(txId);
@@ -752,11 +815,17 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
   }
 };
 
-function renderTransactionsGrouped(transactionsToRender, containerElement, accounts, categories) {
+function renderTransactionsGrouped(
+  transactionsToRender,
+  containerElement,
+  accounts,
+  categories,
+) {
   if (!containerElement) return;
   containerElement.innerHTML = "";
   if (transactionsToRender.length === 0) {
-    containerElement.innerHTML = '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
+    containerElement.innerHTML =
+      '<p style="text-align:center; color:#888;">Операций пока нет.</p>';
     return;
   }
 
@@ -765,16 +834,17 @@ function renderTransactionsGrouped(transactionsToRender, containerElement, accou
   const transferPairs = [];
 
   // 1. Ищем парные операции переводов
-  const transfers = transactionsToRender.filter(t => t.isTransfer);
-  transfers.forEach(t1 => {
+  const transfers = transactionsToRender.filter((t) => t.isTransfer);
+  transfers.forEach((t1) => {
     if (processedTxIds.has(t1.id)) return;
-    
+
     // Ищем пару: тот же description, статус isTransfer и разница во времени не более 1 минуты
-    const t2 = transfers.find(t => 
-      t.id !== t1.id && 
-      !processedTxIds.has(t.id) && 
-      t.description === t1.description && 
-      Math.abs(t.date - t1.date) <= 60 
+    const t2 = transfers.find(
+      (t) =>
+        t.id !== t1.id &&
+        !processedTxIds.has(t.id) &&
+        t.description === t1.description &&
+        Math.abs(t.date - t1.date) <= 60,
     );
 
     if (t2) {
@@ -782,13 +852,18 @@ function renderTransactionsGrouped(transactionsToRender, containerElement, accou
       processedTxIds.add(t2.id);
       const txOut = t1.amount < 0 ? t1 : t2;
       const txIn = t1.amount > 0 ? t1 : t2;
-      transferPairs.push({ isPairedTransfer: true, txOut, txIn, date: txOut.date });
+      transferPairs.push({
+        isPairedTransfer: true,
+        txOut,
+        txIn,
+        date: txOut.date,
+      });
     }
   });
 
   // 2. Собираем обычные операции и склеенные переводы в один список
   const allItems = [];
-  transactionsToRender.forEach(tx => {
+  transactionsToRender.forEach((tx) => {
     if (!processedTxIds.has(tx.id)) allItems.push(tx); // Обычные транзакции
   });
   allItems.push(...transferPairs);
@@ -797,9 +872,13 @@ function renderTransactionsGrouped(transactionsToRender, containerElement, accou
   allItems.sort((a, b) => b.date - a.date);
 
   // Группируем по дням для заголовков
-  allItems.forEach(item => {
+  allItems.forEach((item) => {
     const dateObj = new Date(item.date * 1000);
-    const dateStr = dateObj.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+    const dateStr = dateObj.toLocaleDateString("ru-RU", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
     if (!grouped[dateStr]) grouped[dateStr] = [];
     grouped[dateStr].push(item);
   });
@@ -807,18 +886,31 @@ function renderTransactionsGrouped(transactionsToRender, containerElement, accou
   // 3. Рисуем интерфейс
   for (const [dateStr, items] of Object.entries(grouped)) {
     const header = document.createElement("div");
-    header.style = "font-size: 13px; color: #888; margin: 15px 0 8px 5px; font-weight: bold; text-transform: uppercase;";
+    header.style =
+      "font-size: 13px; color: #888; margin: 15px 0 8px 5px; font-weight: bold; text-transform: uppercase;";
     header.innerText = dateStr;
     containerElement.appendChild(header);
 
-    items.forEach(item => {
+    items.forEach((item) => {
       if (item.isPairedTransfer) {
         // --- РЕНДЕР КАРТОЧКИ ПЕРЕВОДА (Zenmoney style) ---
-        const accOut = accounts.find(a => a.id === item.txOut.accountId);
-        const accIn = accounts.find(a => a.id === item.txIn.accountId);
+        const accOut = accounts.find((a) => a.id === item.txOut.accountId);
+        const accIn = accounts.find((a) => a.id === item.txIn.accountId);
 
-        const symOut = accOut ? (accOut.currency === "USD" ? "$" : accOut.currency === "EUR" ? "€" : "₴") : "₴";
-        const symIn = accIn ? (accIn.currency === "USD" ? "$" : accIn.currency === "EUR" ? "€" : "₴") : "₴";
+        const symOut = accOut
+          ? accOut.currency === "USD"
+            ? "$"
+            : accOut.currency === "EUR"
+              ? "€"
+              : "₴"
+          : "₴";
+        const symIn = accIn
+          ? accIn.currency === "USD"
+            ? "$"
+            : accIn.currency === "EUR"
+              ? "€"
+              : "₴"
+          : "₴";
 
         const valOut = (item.txOut.amount / 100).toFixed(2); // с минусом
         const valIn = (item.txIn.amount / 100).toFixed(2); // с плюсом
@@ -842,18 +934,27 @@ function renderTransactionsGrouped(transactionsToRender, containerElement, accou
               <span class="transfer-amount-out">${valOut} ${symOut}</span>
           </div>`;
         containerElement.appendChild(card);
-
       } else {
         // --- РЕНДЕР ОБЫЧНОЙ ОПЕРАЦИИ ---
         const tx = item;
         const acc = accounts.find((a) => a.id === tx.accountId);
         const cat = categories.find((c) => c.id === tx.categoryId);
-        const symbol = acc ? (acc.currency === "USD" ? "$" : acc.currency === "EUR" ? "€" : "₴") : "₴";
-        
+        const symbol = acc
+          ? acc.currency === "USD"
+            ? "$"
+            : acc.currency === "EUR"
+              ? "€"
+              : "₴"
+          : "₴";
+
         const amount = tx.amount / 100;
-        const amountStr = amount > 0 ? `+${amount} ${symbol}` : `${amount} ${symbol}`;
+        const amountStr =
+          amount > 0 ? `+${amount} ${symbol}` : `${amount} ${symbol}`;
         const colorClass = amount > 0 ? "green" : "white";
-        const timeStr = new Date(tx.date * 1000).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+        const timeStr = new Date(tx.date * 1000).toLocaleTimeString("ru-RU", {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
 
         const card = document.createElement("div");
         card.className = "tx-card";
@@ -1831,10 +1932,254 @@ window.updateEditTransferCalculation = async function () {
     if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
     if (fromAcc.currency === "EUR") amountInUAH = amount * exchangeRates.EUR;
 
-    if (toAcc.currency === "USD") targetAmount = amountInUAH / exchangeRates.USD;
-    else if (toAcc.currency === "EUR") targetAmount = amountInUAH / exchangeRates.EUR;
+    if (toAcc.currency === "USD")
+      targetAmount = amountInUAH / exchangeRates.USD;
+    else if (toAcc.currency === "EUR")
+      targetAmount = amountInUAH / exchangeRates.EUR;
     else targetAmount = amountInUAH;
   }
 
   targetInput.value = targetAmount.toFixed(2);
+};
+
+window.importZenmoneyCSV = async function (csvText) {
+  // Парсинг CSV с учетом кавычек и разделителя ";"
+  function parseCSV(text) {
+    const lines = text.split(/\r\n|\n/);
+    const result = [];
+    for (let i = 0; i < lines.length; i++) {
+      let line = lines[i].trim();
+      if (!line) continue;
+      const row = [];
+      let insideQuote = false;
+      let entry = "";
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        if (char === '"') {
+          insideQuote = !insideQuote;
+        } else if (char === ";" && !insideQuote) {
+          row.push(entry.trim());
+          entry = "";
+        } else {
+          entry += char;
+        }
+      }
+      row.push(entry.trim());
+      result.push(row);
+    }
+    return result;
+  }
+
+  const rows = parseCSV(csvText);
+  if (rows.length < 2) return alert("Файл пуст или некорректен.");
+
+  const headers = rows[0].map((h) =>
+    h.replace(/^\ufeff/, "").replace(/"/g, ""),
+  );
+  const dataRows = rows.slice(1);
+
+  // Индексы колонок
+  const idx = {
+    date: headers.indexOf("date"),
+    categoryName: headers.indexOf("categoryName"),
+    payee: headers.indexOf("payee"),
+    comment: headers.indexOf("comment"),
+    outcomeAccountName: headers.indexOf("outcomeAccountName"),
+    outcome: headers.indexOf("outcome"),
+    outcomeCurrency: headers.indexOf("outcomeCurrencyShortTitle"),
+    incomeAccountName: headers.indexOf("incomeAccountName"),
+    income: headers.indexOf("income"),
+    incomeCurrency: headers.indexOf("incomeCurrencyShortTitle"),
+    createdDate: headers.indexOf("createdDate"),
+  };
+
+  function cleanAccName(name) {
+    if (!name) return "";
+    return name
+      .replace(/^[\*\s]+/, "")
+      .replace(/[\*\s]+$/, "")
+      .trim();
+  }
+
+  // 1. Собираем уникальные счета и категории
+  const accountsMap = new Map();
+  const categoriesMap = new Map();
+
+  // Добавляем системную категорию
+  categoriesMap.set("Без категории", "cat_default");
+
+  dataRows.forEach((row) => {
+    const outAcc = cleanAccName(row[idx.outcomeAccountName]);
+    const incAcc = cleanAccName(row[idx.incomeAccountName]);
+    const outCurr = row[idx.outcomeCurrency] || "UAH";
+    const incCurr = row[idx.incomeCurrency] || "UAH";
+    const catName = (row[idx.categoryName] || "").replace(/"/g, "").trim();
+
+    if (outAcc && !accountsMap.has(outAcc)) {
+      accountsMap.set(outAcc, {
+        id: "acc_" + Math.random().toString(36).substr(2, 9),
+        name: outAcc,
+        startBalance: 0,
+        creditLimit: 0,
+        currency: outCurr,
+        type: outAcc.toLowerCase().includes("наличные") ? "cash" : "bank",
+        bank: outAcc.toLowerCase().includes("наличные") ? null : outAcc,
+        isSavings: outAcc.includes("Копилка") || outAcc.includes("Долги"),
+        icon: outAcc.includes("Наличные")
+          ? "💵"
+          : outAcc.includes("Копилка")
+            ? "🐖"
+            : "💳",
+      });
+    }
+
+    if (incAcc && !accountsMap.has(incAcc)) {
+      accountsMap.set(incAcc, {
+        id: "acc_" + Math.random().toString(36).substr(2, 9),
+        name: incAcc,
+        startBalance: 0,
+        creditLimit: 0,
+        currency: incCurr,
+        type: incAcc.toLowerCase().includes("наличные") ? "cash" : "bank",
+        bank: incAcc.toLowerCase().includes("наличные") ? null : incAcc,
+        isSavings: incAcc.includes("Копилка") || incAcc.includes("Долги"),
+        icon: incAcc.includes("Наличные")
+          ? "💵"
+          : incAcc.includes("Копилка")
+            ? "🐖"
+            : "💳",
+      });
+    }
+
+    if (catName && !categoriesMap.has(catName)) {
+      const outcomeVal = parseFloat(row[idx.outcome]) || 0;
+      const incomeVal = parseFloat(row[idx.income]) || 0;
+      const catType = incomeVal > 0 && outcomeVal === 0 ? "income" : "expense";
+
+      categoriesMap.set(catName, {
+        id: "cat_" + Math.random().toString(36).substr(2, 9),
+        name: catName,
+        type: catType,
+      });
+    }
+  });
+
+  // 2. Преобразуем строки в транзакции
+  const newTransactions = [];
+
+  dataRows.forEach((row, rIdx) => {
+    const outAccName = cleanAccName(row[idx.outcomeAccountName]);
+    const incAccName = cleanAccName(row[idx.incomeAccountName]);
+    const outcome = parseFloat(row[idx.outcome]) || 0;
+    const income = parseFloat(row[idx.income]) || 0;
+    const catName = (row[idx.categoryName] || "").replace(/"/g, "").trim();
+    const payee = (row[idx.payee] || "").replace(/"/g, "").trim();
+    const comment = (row[idx.comment] || "").replace(/"/g, "").trim();
+
+    const createdStr = row[idx.createdDate] || row[idx.date];
+    const timestamp =
+      Math.floor(new Date(createdStr).getTime() / 1000) ||
+      Math.floor(Date.now() / 1000);
+
+    let desc = [payee, comment].filter(Boolean).join(". ") || "Без описания";
+
+    const catObj = categoriesMap.get(catName);
+    const categoryId =
+      typeof catObj === "object" ? catObj.id : catObj || "cat_default";
+
+    // ПЕРЕВОД МЕЖДУ СЧЕТАМИ
+    if (
+      outAccName &&
+      incAccName &&
+      outAccName !== incAccName &&
+      outcome > 0 &&
+      income > 0
+    ) {
+      const transferDesc =
+        desc !== "Без описания" ? "Перевод: " + desc : "Перевод";
+      const outAcc = accountsMap.get(outAccName);
+      const incAcc = accountsMap.get(incAccName);
+
+      if (outAcc && incAcc) {
+        newTransactions.push({
+          id: `tx_import_out_${rIdx}_${timestamp}`,
+          accountId: outAcc.id,
+          categoryId: "cat_default",
+          amount: -Math.round(outcome * 100),
+          description: transferDesc,
+          date: timestamp,
+          userModified: true,
+          isTransfer: true,
+        });
+
+        newTransactions.push({
+          id: `tx_import_in_${rIdx}_${timestamp}`,
+          accountId: incAcc.id,
+          categoryId: "cat_default",
+          amount: Math.round(income * 100),
+          description: transferDesc,
+          date: timestamp,
+          userModified: true,
+          isTransfer: true,
+        });
+      }
+    }
+    // РАСХОД
+    else if (outcome > 0) {
+      const acc = accountsMap.get(outAccName);
+      if (acc) {
+        newTransactions.push({
+          id: `tx_import_${rIdx}_${timestamp}`,
+          accountId: acc.id,
+          categoryId: categoryId,
+          amount: -Math.round(outcome * 100),
+          description: desc,
+          date: timestamp,
+          userModified: true,
+          isTransfer: false,
+        });
+      }
+    }
+    // ДОХОД
+    else if (income > 0) {
+      const acc = accountsMap.get(incAccName);
+      if (acc) {
+        newTransactions.push({
+          id: `tx_import_${rIdx}_${timestamp}`,
+          accountId: acc.id,
+          categoryId: categoryId,
+          amount: Math.round(income * 100),
+          description: desc,
+          date: timestamp,
+          userModified: true,
+          isTransfer: false,
+        });
+      }
+    }
+  });
+
+  // 3. Сохранение в IndexedDB
+  const accountsToSave = Array.from(accountsMap.values());
+  const categoriesToSave = Array.from(categoriesMap.values()).filter(
+    (c) => typeof c === "object",
+  );
+
+  const tx = db.transaction(
+    ["accounts", "categories", "transactions"],
+    "readwrite",
+  );
+  const accStore = tx.objectStore("accounts");
+  const catStore = tx.objectStore("categories");
+  const transStore = tx.objectStore("transactions");
+
+  accountsToSave.forEach((acc) => accStore.put(acc));
+  categoriesToSave.forEach((cat) => catStore.put(cat));
+  newTransactions.forEach((t) => transStore.put(t));
+
+  tx.oncomplete = async () => {
+    alert(
+      `Импорт завершен!\n\nСчетов: ${accountsToSave.length}\nКатегорий: ${categoriesToSave.length}\nОпераций: ${newTransactions.length}`,
+    );
+    await refreshAppData();
+  };
 };
