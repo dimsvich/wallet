@@ -329,12 +329,6 @@
                 Подключить Google Аккаунт
             </button>
             
-           <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
-        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;" onchange="handleZenmoneyImport(this)">
-        <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
-            📊 Импортировать CSV из Дзен-мани
-        </button>
-            </div>
         </div>
         
         <div class="section-header" style="margin-top: 20px;">Резервная копия (Файл)</div>
@@ -343,7 +337,7 @@
         <button class="btn-secondary" style="margin-top: 8px;" onclick="document.getElementById('importFile').click()">Импорт бэкапа из файла</button>
 
         <div class="section-header" style="margin-top: 20px;">Импорт из Дзен-мани</div>
-        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;">
+        <input type="file" id="importZenmoneyFile" accept=".csv" style="display: none;" onchange="handleZenmoneyImport(this)">
         <button class="btn-secondary" onclick="document.getElementById('importZenmoneyFile').click()">
             📊 Импортировать CSV из Дзен-мани
         </button>
@@ -405,12 +399,16 @@
         </div>
     </div>
 
-    <div id="editAccountModal" class="modal">
-        <div class="modal-content">
-            <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
-            <input type="hidden" id="editAccId">
-            
-            <div style="margin-bottom: 12px;">
+    <!-- Модальное окно редактирования счета -->
+    <div id="editAccountModal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать счет</div>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editAccId">
+          
+          <div style="margin-bottom: 12px;">
                 <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Иконка</label>
                 <div style="display: flex; gap: 8px; flex-wrap: wrap;" id="editAccIconPicker">
                     <button type="button" class="edit-icon-chip" onclick="selectEditAccIcon('💳', this)" style="width: 40px; height: 40px; padding: 0; margin: 0; font-size: 18px; background: var(--bg-color); border: 1px solid var(--border-color);">💳</button>
@@ -423,11 +421,43 @@
                 <input type="hidden" id="editAccIconVal" value="💳">
             </div>
 
-            <input type="text" id="editAccName" placeholder="Новое название счета">
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Название счета</label>
+          <input type="text" id="editAccName" class="form-control" placeholder="Название">
+
+          <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Тип счета / Банк</label>
+          <select id="editAccType" class="form-control" onchange="toggleEditAccountFields()" style="margin-bottom:12px;">
+            <option value="cash">Наличные</option>
+            <option value="privat">Приват24 (по пуш-уведомлениям)</option>
+            <option value="bank">Monobank (API)</option>
+          </select>
+
+          <!-- Поле для Приват24 -->
+          <div id="editPrivatFields" style="display: none; margin-top: 10px;">
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Маска карты (4 последние цифры, необязательно)</label>
+            <input type="text" id="editPrivatCardMask" class="form-control" placeholder="Например: 1234">
+          </div>
+
+          <!-- Поля для Monobank -->
+          <div id="editMonoFields" style="display: none; margin-top: 10px;">
+            <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Токен Monobank</label>
+            <input type="text" id="editMonoToken" class="form-control" placeholder="Токен из api.monobank.ua">
+            <button type="button" class="btn-secondary" style="margin-top: 5px; width: 100%;" onclick="loadEditMonoCards()">Проверить токен и загрузить карты</button>
             
-            <button onclick="saveEditedAccountName()">Сохранить</button>
-            <button class="btn-secondary" onclick="closeModal('editAccountModal')">Отмена</button>
+            <div id="editMonoCardsContainer" style="display: none; margin-top: 10px;">
+              <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 6px;">Выберите карту Monobank</label>
+              <select id="editMonoCardSelect" class="form-control"></select>
+            </div>
+          </div>
+
+          <div style="margin-top: 15px; display: flex; align-items: center; gap: 10px;">
+            <input type="checkbox" id="editAccIsSavings" style="width: 20px; height: 20px; margin: 0;">
+            <label for="editAccIsSavings" style="font-size: 14px; cursor: pointer; color: #ccc;">🐷 Накопления и сейфы</label>
+          </div>
+
+          <button class="btn-primary" style="margin-top: 20px; width: 100%;" onclick="saveEditedAccount()">Сохранить изменения</button>
+          <button class="btn-secondary" style="margin-top: 8px; width: 100%;" onclick="closeModal('editAccountModal')">Отмена</button>
         </div>
+      </div>
     </div>
 
     <div id="editTxModal" class="modal">

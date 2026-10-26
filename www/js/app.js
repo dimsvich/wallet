@@ -744,8 +744,12 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
 
         if (!isSilent) {
           const confirmFix = confirm(
-            `Баланс в Монобанке (${bankBalStr} ${symbol}) не совпадает с приложением (${appBalStr} ${symbol}).\n\n` +
-              `Разница: ${diff > 0 ? "+" : "-"}${diffStr} ${symbol}.\n\n` +
+            `Баланс в Монобанке (${bankBalStr} ${symbol}) не совпадает с приложением (${appBalStr} ${symbol}).
+
+` +
+              `Разница: ${diff > 0 ? "+" : "-"}${diffStr} ${symbol}.
+
+` +
               `Создать операцию коррекции баланса?`,
           );
 
@@ -1526,7 +1530,10 @@ document.addEventListener("DOMContentLoaded", () => {
           }
           if (
             confirm(
-              "ВНИМАНИЕ!\n\nТекущие данные будут удалены и заменены данными из копии.\nПродолжить?",
+              "ВНИМАНИЕ!
+
+Текущие данные будут удалены и заменены данными из копии.
+Продолжить?",
             )
           ) {
             await restoreDatabase(data);
@@ -1857,7 +1864,9 @@ window.processMissedPushes = async function (jsonString) {
 // ==========================================
 window.importZenmoneyCSV = async function (csvText) {
   function parseCSV(text) {
-    const lines = text.split(/\r\n|\n/);
+    const lines = text.split(/
+|
+/);
     const result = [];
     for (let i = 0; i < lines.length; i++) {
       let line = lines[i].trim();
@@ -1886,7 +1895,7 @@ window.importZenmoneyCSV = async function (csvText) {
   if (rows.length < 2) return alert("Файл пуст или некорректен.");
 
   const headers = rows[0].map((h) =>
-    h.replace(/^\ufeff/, "").replace(/"/g, ""),
+    h.replace(/^﻿/, "").replace(/"/g, ""),
   );
   const dataRows = rows.slice(1);
 
@@ -2082,7 +2091,12 @@ window.importZenmoneyCSV = async function (csvText) {
 
   tx.oncomplete = async () => {
     alert(
-      `Импорт успешно завершен!\n\nЗагружено:\n• Счетов: ${accountsToSave.length}\n• Категорий: ${categoriesToSave.length}\n• Операций: ${newTransactions.length}`,
+      `Импорт успешно завершен!
+
+Загружено:
+• Счетов: ${accountsToSave.length}
+• Категорий: ${categoriesToSave.length}
+• Операций: ${newTransactions.length}`,
     );
     await refreshAppData();
   };
@@ -2117,3 +2131,118 @@ window.handleZenmoneyImport = function (input) {
   };
   reader.readAsText(file);
 };
+
+// Переключение полей в модальном окне редактирования счета
+window.toggleEditAccountFields = function () {
+  const type = document.getElementById("editAccType").value;
+  document.getElementById("editPrivatFields").style.display = type === "privat" ? "block" : "none";
+  document.getElementById("editMonoFields").style.display = type === "bank" ? "block" : "none";
+};
+
+// Загрузка карт Монобанка для привязки в редакторе
+window.loadEditMonoCards = async function () {
+  const token = document.getElementById("editMonoToken").value.trim();
+  if (!token) return alert("Введите токен Монобанка");
+
+  try {
+    const res = await fetch("https://api.monobank.ua/personal/client-info", {
+      headers: { "X-Token": token }
+    });
+    if (!res.ok) throw new Error("Неверный токен");
+    const data = await res.json();
+
+    const select = document.getElementById("editMonoCardSelect");
+    select.innerHTML = "";
+
+    data.accounts.forEach(acc => {
+      const symbol = acc.currencyCode === 840 ? "$" : acc.currencyCode === 978 ? "€" : "₴";
+      const balance = (acc.balance / 100).toFixed(2);
+      const opt = document.createElement("option");
+      opt.value = JSON.stringify({ id: acc.id, creditLimit: acc.creditLimit || 0 });
+      opt.innerText = `${acc.type || 'Карта'} (${balance} ${symbol})`;
+      select.appendChild(opt);
+    });
+
+    document.getElementById("editMonoCardsContainer").style.display = "block";
+    alert("Токен подтвержден! Выберите нужную карту из списка.");
+  } catch (e) {
+    alert("Ошибка загрузки данных Монобанка: " + e.message);
+  }
+};
+
+// Сохранение отредактированного счета
+window.saveEditedAccount = async function () {
+  const accountId = document.getElementById("editAccId").value;
+  const accounts = await getAllAccounts();
+  const acc = accounts.find(a => a.id === accountId);
+  if (!acc) return;
+
+  acc.name = document.getElementById("editAccName").value.trim();
+  acc.icon = document.getElementById("editAccIconVal").value.trim() || "💳";
+  acc.isSavings = document.getElementById("editAccIsSavings").checked;
+  acc.type = document.getElementById("editAccType").value;
+
+  if (acc.type === "privat") {
+    acc.bank = "privat24";
+    acc.cardMask = document.getElementById("editPrivatCardMask").value.trim();
+  } else if (acc.type === "bank") {
+    acc.bank = "monobank";
+    acc.token = document.getElementById("editMonoToken").value.trim();
+    
+    const cardSelectStr = document.getElementById("editMonoCardSelect").value;
+    if (cardSelectStr) {
+      const cardInfo = JSON.parse(cardSelectStr);
+      acc.bankAccountId = cardInfo.id;
+      acc.creditLimit = cardInfo.creditLimit;
+    }
+  } else {
+    acc.bank = null;
+    acc.token = null;
+    acc.bankAccountId = null;
+  }
+
+  await saveAccount(acc);
+  closeModal('editAccountModal');
+  await refreshAppData();
+  alert("Счет успешно обновлен!");
+};
+
+// Одноразовая миграция для быстрой настройки счетов из импорта
+window.fixImportedAccounts = async function () {
+  const accounts = await getAllAccounts();
+  let updated = false;
+
+  for (let acc of accounts) {
+    // 1. Евро и Доллары отправляем в Сейф
+    if (acc.name.includes("Евро") || acc.name.includes("Доллары")) {
+      if (!acc.isSavings) {
+          acc.isSavings = true;
+          acc.icon = acc.name.includes("Доллары") ? "💵" : "💶";
+          await saveAccount(acc);
+          updated = true;
+      }
+    }
+    // 2. Настраиваем Приват под пуши
+    if (acc.name.includes("Приват")) {
+      if (acc.type !== "privat") {
+          acc.type = "privat";
+          acc.bank = "privat24";
+          await saveAccount(acc);
+          updated = true;
+      }
+    }
+  }
+
+  if (updated) {
+    await refreshAppData();
+  }
+};
+
+// Запускаем авто-миграцию при старте
+document.addEventListener("DOMContentLoaded", () => {
+  setTimeout(() => {
+    if (typeof fixImportedAccounts === "function") {
+      fixImportedAccounts();
+    }
+  }, 1200);
+});
