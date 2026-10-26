@@ -417,17 +417,28 @@
             <div style="font-weight: bold; margin-bottom: 15px; font-size: 16px;">Редактировать операцию</div>
             <input type="hidden" id="editTxId">
             
+            <!-- Выбор типа операции -->
             <div class="custom-select-trigger" id="triggerEditTxType" onclick="openCustomSelect('editTxType')">Тип операции...</div>
             <input type="hidden" id="editTxType" value="expense">
 
+            <!-- Счет списания -->
             <div class="custom-select-trigger" id="triggerEditTxAccount" onclick="openCustomSelect('editTxAccount')">Счет...</div>
             <input type="hidden" id="editTxAccount" value="">
 
+            <!-- Счет получателя (только для перевода) -->
+            <div class="custom-select-trigger" id="triggerEditTxToAccount" style="display: none;" onclick="openCustomSelect('editTxToAccount')">Счет получателя...</div>
+            <input type="hidden" id="editTxToAccount" value="">
+
+            <!-- Категория (только для доходов/расходов) -->
             <div class="custom-select-trigger" id="triggerEditTxCategory" onclick="openCustomSelect('editTxCategory')">Категория...</div>
             <input type="hidden" id="editTxCategory" value="">
 
-            <input type="number" id="editTxAmount" placeholder="Сумма">
+            <!-- Суммы -->
+            <input type="number" id="editTxAmount" placeholder="Сумма списания">
+            <input type="number" id="editTxTargetAmount" placeholder="Сумма зачисления (в валюте получателя)" style="display: none;">
+
             <input type="text" id="editTxDesc" placeholder="Описание">
+
             <button onclick="saveEditedTransaction()">Сохранить изменения</button>
             <button class="btn-danger" onclick="deleteTransaction()">Удалить операцию</button>
             <button class="btn-secondary" onclick="closeModal('editTxModal')">Отмена</button>
@@ -603,6 +614,7 @@
                 {id: 'income', name: 'Доход'},
                 {id: 'transfer', name: 'Перевод'}
             ],
+            editTxToAccount: [],
         };
 
         function openCustomSelect(type) {
@@ -672,7 +684,28 @@
             } else if (type === 'editTxType') {
                 document.getElementById('editTxType').value = id;
                 document.getElementById('triggerEditTxType').innerText = name;
-            }
+            } else if (type === 'editTxType') {
+                document.getElementById('editTxType').value = id;
+                document.getElementById('triggerEditTxType').innerText = name;
+
+                // Скрываем выбор категории, если выбран тип "Перевод"
+                const catTrigger = document.getElementById('triggerEditTxCategory');
+                if (catTrigger) {
+                    catTrigger.style.display = (id === 'transfer') ? 'none' : 'flex';
+                }
+            }else if (type === 'editTxType') {
+    document.getElementById('editTxType').value = id;
+    document.getElementById('triggerEditTxType').innerText = name;
+    toggleEditTransferFields(id);
+} else if (type === 'editTxAccount') {
+    document.getElementById('editTxAccount').value = id;
+    document.getElementById('triggerEditTxAccount').innerText = name;
+    if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
+} else if (type === 'editTxToAccount') {
+    document.getElementById('editTxToAccount').value = id;
+    document.getElementById('triggerEditTxToAccount').innerText = name;
+    if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
+}
         }
 
         function toggleBankSelect() {
@@ -754,6 +787,22 @@
             closeModal('editAccountModal');
             await refreshAppData();
         }
+        function toggleEditTransferFields(txType) {
+    const catTrigger = document.getElementById('triggerEditTxCategory');
+    const toAccTrigger = document.getElementById('triggerEditTxToAccount');
+    const targetAmountInput = document.getElementById('editTxTargetAmount');
+
+    if (txType === 'transfer') {
+        if (catTrigger) catTrigger.style.display = 'none';
+        if (toAccTrigger) toAccTrigger.style.display = 'flex';
+        if (targetAmountInput) targetAmountInput.style.display = 'block';
+        if (window.updateEditTransferCalculation) window.updateEditTransferCalculation();
+    } else {
+        if (catTrigger) catTrigger.style.display = 'flex';
+        if (toAccTrigger) toAccTrigger.style.display = 'none';
+        if (targetAmountInput) targetAmountInput.style.display = 'none';
+    }
+}
     </script>
 </body>
 </html>

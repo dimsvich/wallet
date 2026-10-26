@@ -25,6 +25,13 @@ const CHART_COLORS = [
 ];
 
 document.addEventListener("DOMContentLoaded", async () => {
+  const editAmountInput = document.getElementById("editTxAmount");
+  if (editAmountInput) {
+    editAmountInput.addEventListener("input", () => {
+      if (window.updateEditTransferCalculation)
+        window.updateEditTransferCalculation();
+    });
+  }
   try {
     db = await initDB();
     await fetchRates();
@@ -412,12 +419,9 @@ window.openEditTransaction = async function (txId) {
   if (!tx) return;
 
   document.getElementById("editTxId").value = tx.id;
-  document.getElementById("editTxAmount").value = (
-    Math.abs(tx.amount) / 100
-  ).toFixed(2);
+  document.getElementById("editTxAmount").value = (Math.abs(tx.amount) / 100).toFixed(2);
   document.getElementById("editTxDesc").value = tx.description;
 
-  // Определяем текущий тип операции
   let currentType = "expense";
   let typeName = "Расход";
   if (tx.isTransfer) {
@@ -431,16 +435,29 @@ window.openEditTransaction = async function (txId) {
   const accounts = await getAllAccounts();
   const categories = await getAllCategories();
 
+  // Заполняем кэш второго счета
+  if (typeof selectDataCache !== "undefined") {
+    selectDataCache.editTxToAccount = accounts.map((a) => ({ id: a.id, name: a.name }));
+  }
+
   if (typeof selectCustomOption === "function") {
-    selectCustomOption("editTxType", currentType, typeName);
+    selectCustomOption('editTxType', currentType, typeName);
+
     const acc = accounts.find((a) => a.id === tx.accountId);
     const cat = categories.find((c) => c.id === tx.categoryId);
-    selectCustomOption("editTxAccount", tx.accountId, acc ? acc.name : "Счет");
-    selectCustomOption(
-      "editTxCategory",
-      tx.categoryId,
-      cat ? cat.name : "Категория",
-    );
+
+    selectCustomOption('editTxAccount', tx.accountId, acc ? acc.name : 'Счет');
+    selectCustomOption('editTxCategory', tx.categoryId || 'cat_default', cat ? cat.name : 'Без категории');
+
+    // Если это перевод, выберем другой доступный счет как получателя по умолчанию
+    const otherAcc = accounts.find((a) => a.id !== tx.accountId) || accounts[0];
+    if (otherAcc) {
+      selectCustomOption('editTxToAccount', otherAcc.id, otherAcc.name);
+    }
+  }
+
+  if (typeof toggleEditTransferFields === "function") {
+    toggleEditTransferFields(currentType);
   }
 
   window.openModal("editTxModal");
@@ -449,35 +466,68 @@ window.openEditTransaction = async function (txId) {
 window.saveEditedTransaction = async function () {
   const txId = document.getElementById("editTxId").value;
   const rawAmount = parseFloat(document.getElementById("editTxAmount").value);
-  if (isNaN(rawAmount) || rawAmount === 0)
-    return alert("Введите корректную сумму");
+  if (isNaN(rawAmount) || rawAmount <= 0) return alert("Введите корректную сумму");
 
   const transactions = await getAllTransactions();
   const tx = transactions.find((t) => t.id === txId);
   if (!tx) return;
 
   const txType = document.getElementById("editTxType").value;
-  let newAmount = Math.round(Math.abs(rawAmount) * 100);
+  const fromAccountId = document.getElementById("editTxAccount").value;
+  const toAccountId = document.getElementById("editTxToAccount").value;
+  let desc = document.getElementById("editTxDesc").value.trim();
 
-  // Применяем математический знак и флаг перевода в зависимости от выбранного типа
-  if (txType === "expense") {
-    newAmount = -newAmount;
-    tx.isTransfer = false;
-  } else if (txType === "income") {
-    newAmount = newAmount;
-    tx.isTransfer = false;
-  } else if (txType === "transfer") {
-    newAmount = tx.amount > 0 ? newAmount : -newAmount;
+  let amountInKopecks = Math.round(Math.abs(rawAmount) * 100);
+
+  if (txType === "transfer") {
+    if (!fromAccountId || !toAccountId || fromAccountId === toAccountId) {
+      return alert("Выберите разные счета для перевода");
+    }
+
+    const rawTargetAmount = parseFloat(document.getElementById("editTxTargetAmount").value);
+    if (isNaN(rawTargetAmount) || rawTargetAmount <= 0) {
+      return alert("Укажите сумму зачисления");
+    }
+    let targetAmountInKopecks = Math.round(Math.abs(rawTargetAmount) * 100);
+
+    if (!desc.startsWith("Перевод:")) desc = "Перевод: " + desc;
+
+    // 1. Обновляем текущую операцию как списание средств
+    tx.accountId = fromAccountId;
+    tx.categoryId = "cat_default";
+    tx.amount = -amountInKopecks;
+    tx.description = desc;
     tx.isTransfer = true;
+    tx.userModified = true;
+    await saveTransaction(tx);
+
+    // 2. Создаем парную операцию зачисления на счет-получатель
+    await saveTransaction({
+      id: "tx_in_" + Date.now(),
+      accountId: toAccountId,
+      categoryId: "cat_default",
+      amount: targetAmountInKopecks,
+      description: desc,
+      date: tx.date,
+      userModified: true,
+      isTransfer: true,
+    });
+  } else {
+    // Для Дохода / Расхода
+    if (txType === "expense") {
+      amountInKopecks = -amountInKopecks;
+    }
+
+    tx.accountId = fromAccountId;
+    tx.categoryId = document.getElementById("editTxCategory").value || "cat_default";
+    tx.amount = amountInKopecks;
+    tx.description = desc;
+    tx.isTransfer = false;
+    tx.userModified = true;
+
+    await saveTransaction(tx);
   }
 
-  tx.accountId = document.getElementById("editTxAccount").value;
-  tx.categoryId = document.getElementById("editTxCategory").value;
-  tx.amount = newAmount;
-  tx.description = document.getElementById("editTxDesc").value.trim();
-  tx.userModified = true;
-
-  await saveTransaction(tx);
   window.closeModal("editTxModal");
   await refreshAppData();
 };
@@ -549,10 +599,15 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
 
     // 1. Запрашиваем актуальный баланс карты из профиля клиента
     try {
-      const clientRes = await fetch("https://api.monobank.ua/personal/client-info", { headers });
+      const clientRes = await fetch(
+        "https://api.monobank.ua/personal/client-info",
+        { headers },
+      );
       if (clientRes.ok) {
         const clientData = await clientRes.json();
-        const card = clientData.accounts.find((a) => a.id === bankAccId) || clientData.accounts[0];
+        const card =
+          clientData.accounts.find((a) => a.id === bankAccId) ||
+          clientData.accounts[0];
         if (card) {
           currentBankBalance = card.balance;
           creditLimit = card.creditLimit || 0;
@@ -565,7 +620,10 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
     // 2. Запрашиваем выписку за последние 30 дней
     const to = Math.floor(Date.now() / 1000);
     const from = to - 30 * 24 * 60 * 60;
-    const stmtResponse = await fetch(`https://api.monobank.ua/personal/statement/${bankAccId}/${from}/${to}`, { headers });
+    const stmtResponse = await fetch(
+      `https://api.monobank.ua/personal/statement/${bankAccId}/${from}/${to}`,
+      { headers },
+    );
 
     if (stmtResponse.ok) {
       const data = await stmtResponse.json();
@@ -600,7 +658,7 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
     if (currentBankBalance !== null) {
       const updatedTxs = await getAllTransactions();
       let calculatedBalance = targetAcc.startBalance;
-      
+
       updatedTxs.forEach((tx) => {
         if (tx.accountId === accountId) {
           calculatedBalance += tx.amount;
@@ -611,7 +669,12 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
 
       // Если есть разница в балансе
       if (diff !== 0) {
-        const symbol = targetAcc.currency === "USD" ? "$" : targetAcc.currency === "EUR" ? "€" : "₴";
+        const symbol =
+          targetAcc.currency === "USD"
+            ? "$"
+            : targetAcc.currency === "EUR"
+              ? "€"
+              : "₴";
         const diffStr = (Math.abs(diff) / 100).toFixed(2);
         const appBalStr = (calculatedBalance / 100).toFixed(2);
         const bankBalStr = (currentBankBalance / 100).toFixed(2);
@@ -619,8 +682,8 @@ window.syncMonoAccount = async function (accountId, token, isSilent = false) {
         if (!isSilent) {
           const confirmFix = confirm(
             `Баланс в Монобанке (${bankBalStr} ${symbol}) не совпадает с приложением (${appBalStr} ${symbol}).\n\n` +
-            `Разница: ${diff > 0 ? "+" : "-"}${diffStr} ${symbol}.\n\n` +
-            `Создать операцию коррекции баланса?`
+              `Разница: ${diff > 0 ? "+" : "-"}${diffStr} ${symbol}.\n\n` +
+              `Создать операцию коррекции баланса?`,
           );
 
           if (confirmFix) {
@@ -1637,4 +1700,41 @@ window.processMissedPushes = async function (jsonString) {
   } catch (e) {
     console.error("❌ Ошибка обработки фоновых пушей:", e);
   }
+};
+window.updateEditTransferCalculation = async function () {
+  const type = document.getElementById("editTxType").value;
+  if (type !== "transfer") return;
+
+  const amount = parseFloat(document.getElementById("editTxAmount").value);
+  const targetInput = document.getElementById("editTxTargetAmount");
+  if (!targetInput) return;
+
+  if (isNaN(amount) || amount <= 0) {
+    targetInput.value = "";
+    return;
+  }
+
+  const fromAccId = document.getElementById("editTxAccount").value;
+  const toAccId = document.getElementById("editTxToAccount").value;
+  if (!fromAccId || !toAccId || fromAccId === toAccId) return;
+
+  const accounts = await getAllAccounts();
+  const fromAcc = accounts.find((a) => a.id === fromAccId);
+  const toAcc = accounts.find((a) => a.id === toAccId);
+  if (!fromAcc || !toAcc) return;
+
+  let targetAmount = amount;
+
+  // Если валюты счетов различаются — пересчитываем по курсу
+  if (fromAcc.currency !== toAcc.currency) {
+    let amountInUAH = amount;
+    if (fromAcc.currency === "USD") amountInUAH = amount * exchangeRates.USD;
+    if (fromAcc.currency === "EUR") amountInUAH = amount * exchangeRates.EUR;
+
+    if (toAcc.currency === "USD") targetAmount = amountInUAH / exchangeRates.USD;
+    else if (toAcc.currency === "EUR") targetAmount = amountInUAH / exchangeRates.EUR;
+    else targetAmount = amountInUAH;
+  }
+
+  targetInput.value = targetAmount.toFixed(2);
 };
