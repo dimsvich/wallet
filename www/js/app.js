@@ -341,7 +341,7 @@ window.openEditAccountModal = async function (accountId) {
 
   const tokenContainer = document.getElementById("editMonoTokenContainer");
   const tokenInput = document.getElementById("editAccToken");
-
+  
   if (acc.type === "bank") {
     tokenContainer.style.display = "block";
     tokenInput.value = acc.token || "";
@@ -456,7 +456,7 @@ window.saveNewCategory = async function () {
 
 window.deleteCategory = async function (categoryId) {
   if (categoryId === "cat_default")
-    return alert("Нельзя удалить категорию 'Без категории'");
+    return alert("Нельзя удалить системную категорию 'Без категории'");
   const transactions = await getAllTransactions();
   const usageCount = transactions.filter(
     (t) => t.categoryId === categoryId,
@@ -1130,7 +1130,7 @@ function initDB() {
         catStore.put({
           id: "cat_default",
           name: "Без категории",
-          type: "expense",
+          type: null, // Нейтральный тип
         });
       }
     };
@@ -1417,10 +1417,29 @@ async function refreshAppData() {
   const categoriesList = document.getElementById("categoriesList");
   if (categoriesList) {
     categoriesList.innerHTML = "";
-    const incomeCategories = categories.filter((c) => c.type === "income");
-    const expenseCategories = categories.filter(
-      (c) => c.type === "expense" || !c.type || c.id === "cat_default",
-    );
+    
+    const defaultCategory = categories.find((c) => c.id === "cat_default") || { id: "cat_default", name: "Без категории" };
+    const incomeCategories = categories.filter((c) => c.type === "income" && c.id !== "cat_default");
+    const expenseCategories = categories.filter((c) => (c.type === "expense" || !c.type) && c.id !== "cat_default");
+
+    // Отрисовка системной нейтральной категории отдельно
+    const defaultHeader = document.createElement("div");
+    defaultHeader.className = "section-header";
+    defaultHeader.innerText = "⚙️ Системная категория";
+    categoriesList.appendChild(defaultHeader);
+
+    const defaultCard = document.createElement("div");
+    defaultCard.className = "category-card";
+    defaultCard.style.borderColor = "rgba(99, 102, 241, 0.3)";
+    defaultCard.innerHTML = `
+      <div class="category-info">
+        <span class="category-name">${defaultCategory.name}</span>
+        <span class="category-usage">Универсальная (для любых операций)</span>
+      </div>
+      <div class="category-actions">
+        <span style="color:#888; font-size:12px; align-self:center;">Системная</span>
+      </div>`;
+    categoriesList.appendChild(defaultCard);
 
     const renderCatGroup = (title, cats) => {
       if (cats.length === 0) return;
@@ -1433,14 +1452,11 @@ async function refreshAppData() {
         const usageCount = transactions.filter(
           (t) => t.categoryId === cat.id,
         ).length;
-        const isDefault = cat.id === "cat_default";
         const usageText =
           usageCount > 0 ? `${usageCount} операций` : "Не используется";
         const card = document.createElement("div");
         card.className = "category-card";
-        let actionsHtml = isDefault
-          ? '<span style="color:#888;font-size:12px;">Системная</span>'
-          : `<button class="btn-sm" onclick="openEditCategoryModal('${cat.id}')">✏️</button><button class="btn-sm btn-danger" onclick="deleteCategory('${cat.id}')">✕</button>`;
+        let actionsHtml = `<button class="btn-sm" onclick="openEditCategoryModal('${cat.id}')">✏️</button><button class="btn-sm btn-danger" onclick="deleteCategory('${cat.id}')">✕</button>`;
 
         card.innerHTML = `<div class="category-info"><span class="category-name">${cat.name}</span><span class="category-usage">${usageText}</span></div><div class="category-actions">${actionsHtml}</div>`;
         categoriesList.appendChild(card);
@@ -1966,6 +1982,7 @@ window.importZenmoneyCSV = async function (csvText) {
 
   const accountsMap = new Map();
   const categoriesMap = new Map();
+  
   categoriesMap.set("Без категории", "cat_default");
 
   dataRows.forEach((row) => {
@@ -1975,14 +1992,13 @@ window.importZenmoneyCSV = async function (csvText) {
     const incCurr = row[idx.incomeCurrency] || "UAH";
     const catName = (row[idx.categoryName] || "").replace(/"/g, "").trim();
 
-    // Функция создания конфига счета с автоматическим определением, является ли он сейфом/накопительным
     const createAccObj = (accName, currency) => {
       const lower = accName.toLowerCase();
       const isPrivat = lower.includes("приват") || lower.includes("universal");
-      const isSavings =
-        lower.includes("копилка") ||
-        lower.includes("долги") ||
-        currency === "USD" ||
+      const isSavings = 
+        lower.includes("копилка") || 
+        lower.includes("долги") || 
+        currency === "USD" || 
         currency === "EUR";
 
       let type = "bank";
@@ -2051,9 +2067,11 @@ window.importZenmoneyCSV = async function (csvText) {
 
     let desc = [payee, comment].filter(Boolean).join(". ") || "Без описания";
 
-    const catObj = categoriesMap.get(catName);
-    const categoryId =
-      typeof catObj === "object" ? catObj.id : catObj || "cat_default";
+    let categoryId = "cat_default";
+    if (catName && categoriesMap.has(catName)) {
+      const catObj = categoriesMap.get(catName);
+      categoryId = typeof catObj === "object" ? catObj.id : catObj;
+    }
 
     if (
       outAccName &&
