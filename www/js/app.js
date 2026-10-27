@@ -2050,29 +2050,86 @@ window.processPushNotification = async function (
 
   if (!targetAccount) return;
 
+  const existingTxs = await getAllTransactions();
+  const opTimeSec = Math.floor(parsed.opTime / 1000);
+  const pushDesc = `${parsed.kind}. ${parsed.details}`.trim();
+
+  // 1. ЗАЩИТА ОТ ДУБЛИКАТОВ
+  // Ищем операцию с таким же счетом, описанием и временем в пределах 2 минут
+  const isDuplicate = existingTxs.some((tx) => {
+    return (
+      tx.accountId === targetAccount.id &&
+      tx.description === pushDesc &&
+      Math.abs(tx.date - opTimeSec) <= 120 
+    );
+  });
+
+  if (isDuplicate) {
+    console.log("Дубликат пуша проигнорирован:", pushDesc);
+    return;
+  }
+
+  // 2. УМНАЯ ПРОВЕРКА КОМИССИИ И РАСЧЕТ СУММЫ
+  let currentBalanceKop = targetAccount.startBalance;
+  existingTxs.forEach((tx) => {
+    if (tx.accountId === targetAccount.id) currentBalanceKop += tx.amount;
+  });
+
+  let pushAmountKop = Math.round(parsed.signedAmount * 100);
+  let pushCommKop = Math.round((parsed.commission || 0) * 100);
+  let finalAmountKop = pushAmountKop;
+
+  if (parsed.commission > 0) {
+    // В обоих случаях (доход/расход) комиссия отнимает деньги от баланса, 
+    // поэтому мы отнимаем pushCommKop от потенциального баланса
+    let balanceWithComm = currentBalanceKop + pushAmountKop - pushCommKop;
+    let balanceWithoutComm = currentBalanceKop + pushAmountKop;
+
+    if (parsed.balanceAfter !== null) {
+      let targetBalanceKop = Math.round(parsed.balanceAfter * 100);
+      
+      // Сравниваем, какой теоретический баланс ближе к фактическому из пуша
+      if (
+        Math.abs(targetBalanceKop - balanceWithoutComm) <
+        Math.abs(targetBalanceKop - balanceWithComm)
+      ) {
+        // Баланс сходится БЕЗ учета комиссии (значит комиссия не списалась со счета)
+        finalAmountKop = pushAmountKop;
+      } else {
+        // Баланс сходится С учетом комиссии
+        finalAmountKop = pushAmountKop - pushCommKop;
+      }
+    } else {
+      // Если остатка в пуше нет, по умолчанию списываем комиссию
+      finalAmountKop = pushAmountKop - pushCommKop;
+    }
+  }
+
   const newTransaction = {
-    id: "tx_" + Date.now(),
+    // Добавляем random, чтобы гарантировать уникальность ID при миллисекундных совпадениях
+    id: "tx_push_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
     accountId: targetAccount.id,
     categoryId: "cat_default",
-    type: parsed.type,
-    amount: Math.round((parsed.amount + (parsed.commission || 0)) * 100),
-    date: Math.floor(parsed.opTime / 1000),
-    description: `${parsed.kind}. ${parsed.details}`.trim(),
+    amount: finalAmountKop,
+    date: opTimeSec,
+    description: pushDesc,
     userModified: false,
   };
 
-  if (newTransaction.type === "expense")
-    newTransaction.amount = -Math.abs(newTransaction.amount);
-
+  // 3. ПРАВИЛЬНАЯ КОРРЕКТИРОВКА БАЛАНСА
   if (parsed.balanceAfter !== null) {
-    targetAccount.startBalance = Math.round(parsed.balanceAfter * 100);
-  } else {
-    targetAccount.startBalance +=
-      newTransaction.amount - Math.round((parsed.commission || 0) * 100);
+    let newCalculatedBalance = currentBalanceKop + finalAmountKop;
+    let actualBankBalanceKop = Math.round(parsed.balanceAfter * 100);
+    
+    // Вместо жесткой перезаписи startBalance, аккуратно корректируем дельту,
+    // чтобы компенсировать пропущенные пуши, не ломая старую историю.
+    let diff = actualBankBalanceKop - newCalculatedBalance;
+    targetAccount.startBalance += diff;
   }
 
-  if (parsed.creditLimit !== null)
+  if (parsed.creditLimit !== null) {
     targetAccount.creditLimit = Math.round(parsed.creditLimit * 100);
+  }
 
   await saveAccount(targetAccount);
   await saveTransaction(newTransaction);
