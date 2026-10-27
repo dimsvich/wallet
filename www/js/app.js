@@ -1632,27 +1632,117 @@ async function refreshAppData() {
   if (document.getElementById("tab-analytics").classList.contains("active"))
     renderAnalytics();
 
-  if (typeof selectDataCache !== "undefined") {
-    selectDataCache.account = accounts.map((a) => ({
+ if (typeof selectDataCache !== "undefined") {
+    // 1. Вычисляем актуальные балансы для всех счетов
+    const formatAccName = (a) => {
+      let bal = a.startBalance;
+      transactions.forEach((tx) => {
+        if (tx.accountId === a.id) bal += tx.amount;
+      });
+      const symbol = a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴";
+      return `${a.name} (${(bal / 100).toFixed(2)} ${symbol})`;
+    };
+
+    // 2. Сохраняем сырой массив с посчитанными балансами и флагом накопительного счета
+    selectDataCache.allAccountsRaw = accounts.map((a) => ({
       id: a.id,
-      name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
+      name: formatAccName(a),
+      isSavings: !!a.isSavings,
     }));
-    selectDataCache.toAccount = accounts.map((a) => ({
-      id: a.id,
-      name: `${a.name} (${(a.startBalance / 100).toFixed(2)} ${a.currency === "USD" ? "$" : a.currency === "EUR" ? "€" : "₴"})`,
-    }));
+
+    // 3. Фильтруем счета для меню выбора в зависимости от текущего типа операции
+    const manualTypeEl = document.getElementById("manualType");
+    const currentTxType = manualTypeEl ? manualTypeEl.value : "expense";
+    
+    if (currentTxType === "transfer") {
+      selectDataCache.account = selectDataCache.allAccountsRaw;
+    } else {
+      selectDataCache.account = selectDataCache.allAccountsRaw.filter((a) => !a.isSavings);
+    }
+
+    // Для остальных списков (куда переводить, окна редактирования) доступны все счета
+    selectDataCache.toAccount = selectDataCache.allAccountsRaw;
+    selectDataCache.editTxAccount = selectDataCache.allAccountsRaw;
+    selectDataCache.editTxToAccount = selectDataCache.allAccountsRaw;
+
     selectDataCache.category = categories.map((c) => ({
       id: c.id,
       name: c.name,
-    }));
-    selectDataCache.editTxAccount = accounts.map((a) => ({
-      id: a.id,
-      name: a.name,
     }));
     selectDataCache.editTxCategory = categories.map((c) => ({
       id: c.id,
       name: c.name,
     }));
+
+    selectDataCache.editAccType = [
+      { id: "cash", name: "Наличные / Обычный" },
+      { id: "bank", name: "Банк (Monobank)" },
+      { id: "privat", name: "Банк (Приват24 Push)" },
+    ];
+
+    if (
+      selectDataCache.account.length > 0 &&
+      !document.getElementById("opAccountSelect").value &&
+      typeof window.selectCustomOption === "function"
+    ) {
+      window.selectCustomOption(
+        "account",
+        selectDataCache.account[0].id,
+        selectDataCache.account[0].name,
+      );
+    }
+    
+    if (
+      selectDataCache.toAccount.length > 0 &&
+      !document.getElementById("opToAccountSelect").value &&
+      typeof window.selectCustomOption === "function"
+    ) {
+      const toIdx = selectDataCache.toAccount.length > 1 ? 1 : 0;
+      window.selectCustomOption(
+        "toAccount",
+        selectDataCache.toAccount[toIdx].id,
+        selectDataCache.toAccount[toIdx].name,
+      );
+    }
+
+    if (
+      categories.length > 0 &&
+      !document.getElementById("opCategorySelect").value &&
+      typeof window.selectCustomOption === "function"
+    ) {
+      window.selectCustomOption("category", categories[0].id, categories[0].name);
+    }
+  }
+  // ПАТЧ: Динамическое обновление списка счетов при смене типа операции
+document.addEventListener("DOMContentLoaded", () => {
+  if (typeof window.selectCustomOption !== "undefined") {
+    const origSelectCustomOption = window.selectCustomOption;
+    window.selectCustomOption = function (type, id, name) {
+      // Вызываем оригинальную логику выбора
+      origSelectCustomOption(type, id, name);
+
+      // Если мы только что переключили тип операции...
+      if (type === "manualType" && typeof selectDataCache !== "undefined" && selectDataCache.allAccountsRaw) {
+        if (id === "transfer") {
+          // Для перевода показываем ВСЕ счета (включая накопительные)
+          selectDataCache.account = selectDataCache.allAccountsRaw;
+        } else {
+          // Для расхода и дохода скрываем накопительные
+          selectDataCache.account = selectDataCache.allAccountsRaw.filter((a) => !a.isSavings);
+        }
+
+        // Если выбранный до этого счет пропал из списка (оказался накопительным), 
+        // сбрасываем выбор на первый доступный НЕ накопительный
+        const currentAccId = document.getElementById("opAccountSelect").value;
+        const stillExists = selectDataCache.account.find((a) => a.id === currentAccId);
+        if (!stillExists && selectDataCache.account.length > 0) {
+          document.getElementById("opAccountSelect").value = selectDataCache.account[0].id;
+          document.getElementById("triggerAccount").innerText = selectDataCache.account[0].name;
+        }
+      }
+    };
+  }
+});
 
     // ДОБАВЛЕНО: Для окна редактирования счета
     selectDataCache.editAccType = [
